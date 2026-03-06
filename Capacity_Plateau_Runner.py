@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 """
-P2: Capacity Plateau Scan Runner (v2 - Real MERA)
-FRAMEWORK_SPEC_v0.2.1 compliant
+Capacity Plateau Scan Runner (v2 - Real MERA)
 
 Tests capacity-limited saturation using real MERA simulations with exact
 diagonalization comparison for L=8 systems.
 
 Falsifiers:
-  P2.1: Saturating model preferred (ΔAIC < 0)
-  P2.2: Monotonic entropy increase with chi
+  Saturating model preferred (ΔAIC < 0)
+  Monotonic entropy increase with chi
 
 Usage:
   python3 exp_p2_capacity_plateau_runner_v2.py --L 8 --A_size 4 \\
