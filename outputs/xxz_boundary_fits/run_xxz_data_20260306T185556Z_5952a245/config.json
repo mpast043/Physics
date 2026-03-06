@@ -1,0 +1,8 @@
+{
+  "input_path": "/tmp/openclaws/Repos/Physics/outputs/xxz_boundary_fits/synthetic_input.csv",
+  "output_root": "/tmp/openclaws/Repos/Physics/outputs/xxz_boundary_fits",
+  "exclude_endpoints": 0,
+  "parity_filter": "all",
+  "estimate_ceff": false,
+  "label": null
+}

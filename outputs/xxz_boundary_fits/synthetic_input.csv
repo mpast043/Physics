@@ -1,0 +1,15 @@
+delta,boundary,L,ell,entropy
+0.0,open,8,1,0.009
+0.0,open,8,2,0.355
+0.0,open,8,3,0.552
+0.0,open,8,4,0.693
+0.0,open,8,5,0.787
+0.0,open,8,6,0.847
+0.0,open,8,7,0.880
+0.0,periodic,8,1,0.115
+0.0,periodic,8,2,0.230
+0.0,periodic,8,3,0.345
+0.0,periodic,8,4,0.460
+0.0,periodic,8,5,0.575
+0.0,periodic,8,6,0.690
+0.0,periodic,8,7,0.805

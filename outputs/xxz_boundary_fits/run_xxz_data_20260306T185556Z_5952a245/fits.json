@@ -1,0 +1,36 @@
+[
+  {
+    "delta": 0.0,
+    "boundary": "open",
+    "L": 8,
+    "n_total": 7,
+    "n_used": 7,
+    "n_skipped": 0,
+    "fit_success": true,
+    "fit_error": null,
+    "slope": 0.25656244499075376,
+    "intercept": 0.27297286276897,
+    "rss": 0.5279731584797347,
+    "rmse": 0.27463564394607703,
+    "r_squared": 0.11084195005012776,
+    "residual_mean": 1.2688263138573217e-16,
+    "residual_std": 0.27463564394607703
+  },
+  {
+    "delta": 0.0,
+    "boundary": "periodic",
+    "L": 8,
+    "n_total": 7,
+    "n_used": 7,
+    "n_skipped": 0,
+    "fit_success": true,
+    "fit_error": null,
+    "slope": -8.591118556640578e-18,
+    "intercept": 0.46000000000000013,
+    "rss": 0.3703,
+    "rmse": 0.23,
+    "r_squared": -2.220446049250313e-16,
+    "residual_mean": -1.2688263138573217e-16,
+    "residual_std": 0.22999999999999998
+  }
+]

@@ -1,0 +1,18 @@
+{
+  "chi_values": [
+    8
+  ],
+  "created_utc": "2026-03-06T18:56:09+00:00",
+  "hostname": "Mac",
+  "n_sites_values": [
+    8
+  ],
+  "numpy_version": "2.4.2",
+  "output_dir": "/tmp/openclaws/Repos/Physics/outputs/p4_capacity_comparisons/RUN_20260306_185609_Mac_62377_447a8e33",
+  "plots_requested": false,
+  "python_version": "3.14.3 (main, Feb  3 2026, 15:32:20) [Clang 17.0.0 (clang-1700.6.3.2)]",
+  "run_id": "RUN_20260306_185609_Mac_62377_447a8e33",
+  "script": "Unstable_MERA_Capacity_Allocator.py",
+  "seed": 42,
+  "trials_per_condition": 5
+}

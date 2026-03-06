@@ -1,0 +1,52 @@
+{
+  "metadata": {
+    "run_id": "20260306T185515Z_7252e9f8",
+    "timestamp_utc": "2026-03-06T18:55:15+00:00",
+    "config": {
+      "chi_sweep": [
+        2,
+        4,
+        8,
+        16
+      ],
+      "L": 8,
+      "A_size": 4,
+      "model": "ising_cyclic",
+      "fit_steps": 80,
+      "seed": 42,
+      "output": "/tmp/openclaws/Repos/Physics/outputs/p3_capacity_plateau"
+    },
+    "test": "Capacity Plateau",
+    "version": "3.0.0"
+  },
+  "ed_reference": {
+    "energy": -8.0,
+    "entropy": 0.4
+  },
+  "fits": {
+    "loglinear": {
+      "ok": true,
+      "a": 4.564359137214686e-16,
+      "b": 0.4999999999999999,
+      "rss": 3.6053408558929055e-31,
+      "aic": -112.06926190819375,
+      "bic": -113.29667318595398
+    },
+    "saturating": {
+      "ok": true,
+      "S_inf": 2.822588722239781,
+      "c": 3.0148411046797987,
+      "alpha": 0.261328130900461,
+      "rss": 0.004120779934187184,
+      "aic": -21.51202876096819,
+      "bic": -23.353145677608516
+    },
+    "delta_aic": 90.55723314722556,
+    "delta_bic": 89.94352750834545
+  },
+  "derived_checks": {
+    "sat_preferred": false,
+    "monotonic_entropy": true,
+    "high_fidelity": false
+  }
+}

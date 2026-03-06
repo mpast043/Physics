@@ -1,0 +1,19 @@
+[
+  {
+    "capacity_advantage_mean": -439.2,
+    "capacity_ratio_random_over_mera_mean": 0.30506329113924047,
+    "chi": 8,
+    "error_ratio_random_over_mera_mean": 1.414213562373095,
+    "mera_beats_random_fraction": 0.0,
+    "mera_c_total_max": 632.0,
+    "mera_c_total_mean": 632.0,
+    "mera_c_total_min": 632.0,
+    "mera_error_mean": 0.3535533905932738,
+    "n_sites": 8,
+    "random_c_total_max": 268.0,
+    "random_c_total_mean": 192.8,
+    "random_c_total_min": 148.0,
+    "random_error_mean": 0.5,
+    "trials": 5
+  }
+]

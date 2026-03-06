@@ -1,0 +1,25 @@
+{
+  "metadata": {
+    "run_id": "20260306T185513Z_72310d81",
+    "timestamp": "2026-03-06T18:55:13.753137+00:00",
+    "config": {
+      "L": 8,
+      "A_size": 4,
+      "model": "ising_cyclic"
+    },
+    "test": "ISOMETRIC_GLUING_DIAGNOSTICS",
+    "version": "5.0.0"
+  },
+  "ed_reference": {
+    "energy": -4.221285373302043,
+    "cut_entropy": 0.08879193953541167,
+    "model_used": "ising"
+  },
+  "derived_checks": {
+    "rho_A_valid": true,
+    "rho_B_valid": true,
+    "excision_consistency": true,
+    "subadditivity": true,
+    "araki_lieb": true
+  }
+}

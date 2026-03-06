@@ -1,0 +1,2 @@
+n_sites,chi,trials,mera_c_total_mean,random_c_total_mean,capacity_advantage_mean,capacity_ratio_random_over_mera_mean,mera_error_mean,random_error_mean,error_ratio_random_over_mera_mean,mera_beats_random_fraction,mera_c_total_min,mera_c_total_max,random_c_total_min,random_c_total_max
+8,8,5,632.0,192.8,-439.2,0.30506329113924047,0.3535533905932738,0.5,1.414213562373095,0.0,632.0,632.0,148.0,268.0

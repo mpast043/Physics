@@ -1,0 +1,20 @@
+{
+  "measurement_count": 14,
+  "group_count": 2,
+  "fit_success_count": 2,
+  "fit_failure_count": 0,
+  "boundaries": [
+    "open",
+    "periodic"
+  ],
+  "delta_values": [
+    0.0
+  ],
+  "system_sizes": [
+    8
+  ],
+  "r_squared_min": -2.220446049250313e-16,
+  "r_squared_max": 0.11084195005012776,
+  "rmse_min": 0.23,
+  "rmse_max": 0.27463564394607703
+}
