@@ -12,8 +12,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
+from scipy.linalg import lstsq
 
-VERSION = "2.1.0"
+VERSION = "2.3.0"
 DEFAULT_STEPS = [10, 20, 40, 80, 160, 320, 640, 1280]
 FIT_START_INDEX = 1
 MIN_RETURN_PROB = 1e-12
@@ -86,7 +87,7 @@ def estimate_spectral_dim(steps: np.ndarray, return_probs: np.ndarray) -> FitSum
     log_probs = np.log(fit_probs)
 
     design = np.column_stack((log_steps, np.ones_like(log_steps)))
-    coef, _, _, _ = np.linalg.lstsq(design, log_probs, rcond=None)
+    coef, _, _, _ = lstsq(design, log_probs, check_finite=False)
     slope, intercept = map(float, coef)
 
     predicted = slope * log_steps + intercept
@@ -187,6 +188,7 @@ def write_measurements_csv(path: Path, measurements: list[dict[str, object]]) ->
 
     fieldnames = ["step", "return_prob", "log_step", "log_return_prob"]
     with path.open("w", encoding="utf-8", newline="") as handle:
+
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(measurements)
@@ -262,7 +264,7 @@ def main() -> None:
     summary = result["summary"]
     print(f"[P1] Run directory: {run_dir}")
     print(
-        "[P1] "
+        f"[P1] "
         f"d_s_estimated={summary['d_s_estimated']:.6f} "
         f"slope={summary['slope']:.6f} "
         f"r_squared={summary['r_squared']:.6f}"

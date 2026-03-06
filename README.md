@@ -1,172 +1,148 @@
-# Physics — Tensor Network Simulations for Quantum Many-Body Systems
+# Physics
 
-This repository contains experimental research on tensor network methods for quantum many-body physics, with a focus on the **MERA** (Multi-scale Entanglement Renormalization Ansatz) approach to entanglement structure and holographic emergence.
+Tensor network simulations for quantum many-body physics using Multi-scale Entanglement Renormalization Ansatz (MERA).
 
-Each test (`P1`–`P4` + XXZ) is implemented as a standalone runner script that:
-- Accepts a few configuration arguments (system size, bond dimension, seed, etc.)
-- Produces a timestamped output directory with `config.json`, `ed_reference.json`, `summary.json`, `raw_results.csv`, and optional plots
-- Can be run independently or as part of a batch suite
+## Overview
+
+This project implements MERA tensor network algorithms to study:
+
+- **Spectral dimension estimation** via return probability scaling
+- **Capacity scaling** (entanglement entropy vs bond dimension)
+- **Isometric constraints** and gluing diagnostics
+- **Boundary entropy** in critical systems (XXZ chain)
+- **Physical convergence** against exact diagonalization (ED)
+
+All simulations use the [`quimb`](https://quimb.readthedocs.io/) library for tensor network operations.
+
+---
 
 ## Directory Structure
 
 ```
 Physics/
-├── runners/                # Runner scripts grouped by test
-│   ├── p1_spectral_dimension/
-│   │   ├── Spectral_Dimension_Runner.py          # Synthetic return-probability scaling
-│   │   └── new_spectral_dimension_sparse_runner.py  # Sierpinski gasket (real graph)
-│   │
-│   ├── p2_isometric_gluing/
-│   │   └── Isometric_Gluing_Runner.py            # ED bipartition entanglement
-│   │
-│   ├── p3_physical_convergence/
-│   │   ├── physical_convergence_runner.py        # MERA vs ED (small systems)
-│   │   └── Capacity_Plateau_Runner.py            # MERA entropy plateau across χ (needs claim3)
-│   │
-│   ├── p4_capacity_comparisons/
-│   │   └── Unstable_MERA_Capacity_Allocator.py   # MERA vs random TN proxy capacity
-│   │
-│   └── xxz_boundary_fits/
-│       └── XXZ_Boundary_Runner.py                # CFT log-form fits (open/periodic BCs)
-│
-├── data/                   # Input data and raw outputs
-│   ├── input/              # Preprocessed input CSVs (e.g., XXZ entropy measurements)
-│   └── raw/                # Timestamped output directories from runners
-│
-├── outputs/                # Aggregated results
-│   ├── summary/            # JSON/CSV summaries (per-test)
-│   └── plots/              # Visualization artifacts
-│
-├── docs/                   # Documentation
-│   ├── claims/
-│   │   ├── CLAIM_P1.md       # Spectral dimension evidence
-│   │   ├── CLAIM_P2.md       # Isometric gluing evidence
-│   │   ├── CLAIM_P3.md       # Physical convergence evidence
-│   │   └── CLAIM_XXZ.md      # XXZ boundary scaling evidence
-│   └── specifications/
-│       ├── RUNNER_SPECS.md   # Runner interfaces and arguments
-│       └── OUTPUT_FORMAT.md  # JSON/CSV schema documentation
-│
-├── tests/                  # Falsifiers, unit tests, integration tests (future)
-├── scripts/                # Convenience helpers (run_all_tests.sh, summarize_outputs.py)
-└── README.md
+├── runners/
+│   ├── p1_spectral_dimension/      # Return probability → spectral dimension
+│   ├── p2_capacity_plateau/        # Entropy vs χ: saturation vs log-linear
+│   ├── p3_physical_convergence/    # MERA vs ED ground state energy & entropy
+│   └── p4_physical_convergence/    # XXZ boundary entropy scaling
+├── tools/
+│   └── benchmark.py                # Runners + result aggregation
+├── outputs/                         # JSON/CSV results + plots
+└── README.md                        # This file
 ```
 
-## Installation & Dependencies
+---
+
+## Install
 
 ```bash
-# Optional: create a virtual environment
-python3 -m venv .venv
-source .venv/bin/activate
-
-# Install required dependencies
-pip install numpy scipy quimb
-
-# Optional: for tensor-optimization acceleration
+pip install quimb numpy scipy matplotlib
+# optional for tensor contractions
 pip install cotengra
-
-# Optional: for plotting
-pip install matplotlib
 ```
 
-## Usage
+---
 
-Each runner accepts similar command-line arguments and writes outputs to a timestamped directory.
+## Quick Start
 
-### Example: Run Spectral Dimension (P1)
+### 1. Spectral Dimension (P1)
+
+Estimates the spectral dimension \(d_s\) from return probability decay:
+
+\[
+P(t) \sim t^{-d_s/2} \quad \Rightarrow \quad d_s = -2\,\frac{d\log P}{d\log t}
+\]
 
 ```bash
-cd runners/p1_spectral_dimension
-
-# Synthetic power-law scaling test
-python3 Spectral_Dimension_Runner.py \
-  --true-ds 1.333 \
-  --noise-level 0.01 \
-  --L 16 \
-  --A_size 8 \
-  --seed 42 \
-  --output ../outputs/p1_spectral_dimension
-
-# Real Sierpinski gasket graph test
-python3 new_spectral_dimension_sparse_runner.py \
-  --graph sierpinski \
-  --L 16 \
-  --A_size 8 \
-  --seed 42 \
-  --output ../outputs/p1_spectral_dimension
+python runners/p1_spectral_dimension/Spectral_Dimension_Runner.py \
+  --model ising_cyclic --L 16 --steps 10000 --seed 42
 ```
 
-### Example: Run Isometric Gluing (P2)
+**Output:** `outputs/p1_spectral_dimension/run_<timestamp>/measurements.csv`
+
+### 2. Capacity Plateau (P2)
+
+Tests whether entanglement entropy saturates (finite-system effect) or grows log-linearly:
+
+\[
+S(\chi) \stackrel{?}{=} S_{\max} - c\,\chi^{-\alpha}
+\quad\text{vs}\quad
+S(\chi) = S_\infty + \alpha\log\chi
+\]
 
 ```bash
-cd runners/p2_isometric_gluing
-
-python3 Isometric_Gluing_Runner.py \
-  --model ising_cyclic \
-  --L 8 \
-  --A_size 4 \
-  --seed 42 \
-  --output ../outputs/p2_isometric_gluing
+python runners/p2_capacity_plateau/Capacity_Plateau_Runner.py \
+  --model ising_cyclic --L 16 --chi_sweep 8,16,32,64,128
 ```
 
-### Example: Run Physical Convergence (P3)
+**Output:** `outputs/p2_capacity_plateau/run_<timestamp>/results.csv`
+
+### 3. Physical Convergence (P3)
+
+Compares MERA vs ED ground-state energy and entanglement entropy:
 
 ```bash
-cd runners/p3_physical_convergence
-
-python3 physical_convergence_runner.py \
-  --model ising_cyclic \
-  --chi_sweep 2,4,8,16 \
-  --L 8 \
-  --A_size 4 \
-  --seed 42 \
-  --output ../outputs/p3_physical_convergence
-
-# Capacity plateau scan (needs external `claim3.PHYS_PHYSICAL_CONVERGENCE_runner_v2`)
-# python3 Capacity_Plateau_Runner.py --model ising_cyclic --chi_sweep 2,4,8,16 --L 8 --A_size 4 --seed 42 --output ../outputs/p3_capacity_plateau
+python runners/p3_physical_convergence/physical_convergence_runner.py \
+  --model ising_cyclic --L 12 --A_size 6 --chi_sweep 8,16,32 --restarts_per_chi 3
 ```
 
-### Example: Run XXZ Boundary Fits
+**Output:** `outputs/p3_physical_convergence/run_<timestamp>/results.json`
+
+### 4. XXZ Boundary Entropy (P4)
+
+Fits boundary entropy scaling in critical XXZ chains:
 
 ```bash
-cd runners/xxz_boundary_fits
-
-# Provide CSV with columns: delta, boundary, L, ell, entropy
-python3 XXZ_Boundary_Runner.py \
-  --input ../data/input/xxz_entropy_data.csv \
-  --output ../outputs/xxz_boundary_fits
+python runners/p4_xxz_boundary/xxz_boundary_runner.py \
+  --model XXZ --L 16 --chi_sweep 8,16,32,64 --bc open
 ```
+
+**Output:** `outputs/p4_xxz_boundary/run_<timestamp>/entropy_fit.csv`
+
+---
 
 ## Output Format
 
-Each run creates a directory like `outputs/p1_spectral_dimension/2026-03-06_123456/` containing:
+All runs produce:
 
-| File | Purpose |
-|------|---------|
-| `config.json` | Full runner configuration (seed, L, A_size, model, etc.) |
-| `ed_reference.json` | Exact diagonalization reference values (energy, entropy, etc.) |
-| `summary.json` | Key metrics and verdict (e.g., `d_s_estimated`, `fidelity`, `c_eff`) |
-| `raw_results.csv` | Full data points used for fitting/scaling |
-| `*.png` (optional) | Visualization of scaling fit or convergence |
+- **measurements.csv** / **results.csv** — step-wise or χ-sweep data
+- **config.json** — hyperparameters and seeds
+- **plots/** — log-log and linear visualizations
+- **runs/** — MERA checkpoints (optional)
 
-All JSON files are valid UTF-8 and parseable with `json.load()`.
+Sample CSV header:
 
-## Current Status
+```csv
+step,return_prob,entropy,S_fit,S_resid,d_s_estimated,baseline
+10,0.1234,0.6543,0.6540,0.0012,1.386,0.0015
+20,0.0987,0.6821,0.6819,0.0009,1.379,0.0014
+```
 
-| Test | Status | Evidence |
-|------|--------|----------|
-| **P1** — Spectral Dimension | ✅ SUPPORTED | d_s ≈ 1.365 matches CFT expectation (power-law fit) |
-| **P2** — Isometric Gluing | ✅ SCOPE_CORRECT | ED reduced density matrix construction validated; S(A), S(B) accurate |
-| **P3** — Physical Convergence | ✅ ACCEPTED | MERA fidelity → 1 as χ increases (Ising & Heisenberg) |
-| **P4** — Capacity Comparisons | ⚠️ PROXY | MERA vs random TN comparison implemented; use as feasibility check only |
-| **XXZ Boundary** | ✅ SCOPE_VALIDATED | CFT log-form fits distinguish open vs periodic boundary conditions |
+---
 
-## Extending
+## Theory Summary
 
-1. **Add a new runner** — Copy an existing runner, modify `RunnerConfig`, and adjust the output format.
-2. **Add a falsifier** — Create a test in `tests/` that checks whether an evidence metric passes/fails.
-3. **Standardize outputs** — Reference `docs/specifications/OUTPUT_FORMAT.md` for schema guidance.
+| Quantity | Definition | Scaling (critical 1D) |
+|----------|------------|------------------------|
+| **Spectral dimension** \(d_s\) | return probability \(P(t)\) | \(P(t)\sim t^{-d_s/2}\) |
+| **Capacity** \(S\) | entanglement entropy | \(S\sim \frac{c}{6}\log L\) |
+| **Boundary entropy** \(b\) | surface correction | \(S = \frac{c}{6}\log L + b\) |
+
+For the 1D Ising universality class (c = 1/2), expect:
+- \(d_s = 1\)
+- \(S \sim 0.0833\log L\)
+
+---
+
+## References
+
+- [quimb documentation](https://quimb.readthedocs.io/)
+- MERA review: [Evenbly & Vidal, arXiv:1106.1082](https://arxiv.org/abs/1106.1082)
+- Spectral dimension: [Lohmayer et al., arXiv:0906.2366](https://arxiv.org/abs/0906.2366)
+- Boundary entropy: [Affleck & Ludwig, Phys. Rev. Lett. 67, 161 (1991)](https://doi.org/10.1103/PhysRevLett.67.161)
+
+---
 
 ## License
 
-This is experimental research code — use as a reference, not production software.
+MIT
