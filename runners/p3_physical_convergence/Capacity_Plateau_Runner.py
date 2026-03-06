@@ -35,10 +35,17 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from claim3.PHYS_PHYSICAL_CONVERGENCE_runner_v2 import (  # noqa: E402
-    exact_diagonalization,
-    optimize_mera_for_fidelity,
-)
+try:
+    from claim3.PHYS_PHYSICAL_CONVERGENCE_runner_v2 import (  # noqa: E402
+        exact_diagonalization,
+        optimize_mera_for_fidelity,
+    )
+except (ImportError, ModuleNotFoundError):
+    # Fallback: use local stubs if claim3 unavailable
+    from local_ed_helpers import (  # noqa: E402
+        exact_diagonalization,
+        optimize_mera_for_fidelity,
+    )
 
 
 @dataclass(frozen=True)
