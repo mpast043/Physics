@@ -1,14 +1,9 @@
 #!/usr/bin/env python3
 """
-P3: MERA Isometric Gluing Test (v4 - Corrected)
-
 This test verifies that MERA's isometric structure correctly preserves
 local density matrices when gluing partitions.
 
-Background:
------------
-The original P3 test failed because it used naive tensor product which
-assumes uncorrelated partitions. For entangled ground states, the correct
+For entangled ground states, the correct
 approach is to use MERA's isometric tensors.
 
 The isometric property: V^dagger V = I
@@ -160,7 +155,7 @@ def compute_rho_spectrum(rho: np.ndarray) -> np.ndarray:
     return eigenvalues
 
 
-def run_p3_isometric(cfg: Dict) -> Dict:
+def run_isometric(cfg: Dict) -> Dict:
     """Run P3 isometric gluing test."""
     L = cfg["L"]
     A_size = cfg["A_size"]
@@ -244,7 +239,7 @@ def run_p3_isometric(cfg: Dict) -> Dict:
             "run_id": run_id(),
             "timestamp": dt.datetime.now(dt.timezone.utc).isoformat(),
             "config": cfg,
-            "test": "P3_ISOMETRIC_GLUING",
+            "test": "ISOMETRIC_GLUING",
             "version": "4.0.0",
         },
         "ed_reference": {
@@ -304,7 +299,7 @@ def write_out(res: Dict, out_dir: Path):
         json.dump(res_clean["measurements"], f, indent=2)
 
     verdict = {
-        "test": "P3_ISOMETRIC_GLUING",
+        "test": "ISOMETRIC_GLUING",
         "verdict": res_clean["verdict"],
         "status": "COMPLETE",
         "passed": res_clean["passed"],
@@ -329,7 +324,7 @@ def main():
         "model": a.model,
     }
 
-    res = run_p3_isometric(cfg)
+    res = run_isometric(cfg)
     write_out(res, Path(a.output))
 
 
