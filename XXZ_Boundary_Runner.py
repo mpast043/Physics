@@ -1,276 +1,559 @@
 #!/usr/bin/env python3
-"""
-P2 XXZ Boundary Test - Literature Benchmark Version
+"""XXZ boundary data-first runner.
 
-Uses literature phase behavior for the XXZ chain to validate
-the framework's scope boundary predictions.
+This runner does not encode literature verdicts. It ingests measured
+entanglement-entropy data, fits the appropriate CFT-inspired log form for
+open or periodic boundary conditions, and writes standardized run outputs.
 
-Reference assumptions encoded here:
-- XXZ critical regime: -1 <= Δ <= 1
-  - central charge c = 1
-  - entanglement entropy scales logarithmically:
-        S(L) = (c / 3) * log(L) + k
-  - expected framework verdict: REJECT (out of scope)
+Expected input fields per row:
+    delta,boundary,L,ell,entropy
 
-- XXZ gapped regimes: Δ > 1 and Δ < -1
-  - entropy is expected to saturate / remain bounded
-  - CFT central charge is not used as the descriptor here
-  - expected framework verdict: ACCEPT (in scope)
+Boundary aliases accepted:
+    open, obc, periodic, pbc
 """
 
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import math
+import secrets
+from collections import defaultdict
+from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
+
+import numpy as np
+
+VERSION = "1.0.0"
+TEST_NAME = "XXZ_BOUNDARY_DATA"
+MIN_FIT_POINTS = 3
 
 
-def resolve_output_dir(base_out: Path, run_id_value: str, mode: str = "append") -> Path:
-    """Resolve concrete output directory using append-or-overwrite semantics."""
-    base_out = Path(base_out)
-
-    if mode == "overwrite":
-        base_out.mkdir(parents=True, exist_ok=True)
-        return base_out
-
-    if not base_out.exists():
-        base_out.mkdir(parents=True, exist_ok=True)
-        return base_out
-
-    if not any(base_out.iterdir()):
-        return base_out
-
-    candidate = base_out / f"run_{run_id_value}"
-    suffix = 1
-    while candidate.exists():
-        candidate = base_out / f"run_{run_id_value}_{suffix:02d}"
-        suffix += 1
-
-    candidate.mkdir(parents=True, exist_ok=False)
-    return candidate
+@dataclass(frozen=True)
+class RunConfig:
+    input_path: str
+    output_root: str
+    exclude_endpoints: int
+    parity_filter: str
+    estimate_ceff: bool
+    label: str | None = None
 
 
-def cft_entanglement_entropy(L: int, c: float, k: float = 0.5) -> float:
-    """
-    CFT prediction for entanglement entropy in 1D critical systems.
-
-    S(L) = (c / 3) * log(L) + k
-
-    Parameters:
-        L: System size
-        c: Central charge
-        k: Non-universal additive constant
-
-    Returns:
-        Predicted entanglement entropy
-    """
-    return (c / 3.0) * math.log(L) + k
+def utc_now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
-def expected_scope(delta: float) -> str:
-    """
-    Determine expected scope based on XXZ phase.
-
-    Returns:
-        "IN_SCOPE"  for gapped phases (Δ < -1 or Δ > 1)
-        "OUT_OF_SCOPE" for critical phase (-1 <= Δ <= 1)
-    """
-    if delta < -1.0 or delta > 1.0:
-        return "IN_SCOPE"
-    return "OUT_OF_SCOPE"
+def make_run_id(prefix: str = "xxz_data") -> str:
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    return f"{prefix}_{timestamp}_{secrets.token_hex(4)}"
 
 
-def central_charge(delta: float) -> Optional[float]:
-    """
-    Return central charge in the critical regime; None for gapped phases.
-
-    XXZ chain:
-    - critical for -1 <= Δ <= 1 with c = 1
-    - gapped outside that interval
-    """
-    if -1.0 <= delta <= 1.0:
-        return 1.0
-    return None
-
-
-def expected_scaling_behavior(delta: float) -> str:
-    """Return the expected entropy scaling class."""
-    return "bounded" if expected_scope(delta) == "IN_SCOPE" else "logarithmic"
+def normalize_boundary(raw: str) -> str:
+    value = str(raw).strip().lower()
+    mapping = {
+        "open": "open",
+        "obc": "open",
+        "periodic": "periodic",
+        "pbc": "periodic",
+    }
+    if value not in mapping:
+        raise ValueError(f"Unsupported boundary '{raw}'. Use open/obc or periodic/pbc.")
+    return mapping[value]
 
 
-def expected_preferred_model(delta: float) -> str:
-    """
-    Return the model expected to win under AIC comparison.
+def parse_csv(path: Path) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    with path.open("r", encoding="utf-8", newline="") as handle:
+        reader = csv.DictReader(handle)
+        required = {"delta", "boundary", "L", "ell", "entropy"}
+        if reader.fieldnames is None or not required.issubset(set(reader.fieldnames)):
+            raise ValueError(
+                f"CSV must include columns: {sorted(required)}. "
+                f"Found: {reader.fieldnames}"
+            )
 
-    Convention:
-        delta_aic = AIC_sat - AIC_log
-    """
-    return "saturating" if expected_scope(delta) == "IN_SCOPE" else "log-linear"
+        for idx, row in enumerate(reader, start=2):
+            try:
+                rows.append(
+                    {
+                        "delta": float(row["delta"]),
+                        "boundary": normalize_boundary(row["boundary"]),
+                        "L": int(row["L"]),
+                        "ell": int(row["ell"]),
+                        "entropy": float(row["entropy"]),
+                        "source_row": idx,
+                    }
+                )
+            except Exception as exc:
+                raise ValueError(f"Invalid data in CSV row {idx}: {row}") from exc
+    return rows
 
 
-def expected_delta_aic_sign(delta: float) -> str:
-    """
-    Return the expected sign of delta_aic = AIC_sat - AIC_log.
+def parse_json(path: Path) -> list[dict[str, Any]]:
+    with path.open("r", encoding="utf-8") as handle:
+        payload = json.load(handle)
 
-    negative -> saturating model preferred
-    positive -> log-linear model preferred
-    """
-    return "negative" if expected_scope(delta) == "IN_SCOPE" else "positive"
+    if isinstance(payload, dict):
+        if "measurements" not in payload or not isinstance(payload["measurements"], list):
+            raise ValueError("JSON object input must contain a 'measurements' list.")
+        raw_rows = payload["measurements"]
+    elif isinstance(payload, list):
+        raw_rows = payload
+    else:
+        raise ValueError("JSON input must be either a list or an object with 'measurements'.")
+
+    rows: list[dict[str, Any]] = []
+    for idx, row in enumerate(raw_rows, start=1):
+        try:
+            rows.append(
+                {
+                    "delta": float(row["delta"]),
+                    "boundary": normalize_boundary(row["boundary"]),
+                    "L": int(row["L"]),
+                    "ell": int(row["ell"]),
+                    "entropy": float(row["entropy"]),
+                    "source_row": idx,
+                }
+            )
+        except Exception as exc:
+            raise ValueError(f"Invalid data in JSON measurement #{idx}: {row}") from exc
+    return rows
 
 
-def expected_verdict(delta: float) -> str:
-    """Return the expected framework verdict."""
-    return "ACCEPT" if expected_scope(delta) == "IN_SCOPE" else "REJECT"
+def load_measurements(path_str: str) -> list[dict[str, Any]]:
+    path = Path(path_str)
+    if not path.exists():
+        raise FileNotFoundError(f"Input file not found: {path}")
+
+    suffix = path.suffix.lower()
+    if suffix == ".csv":
+        rows = parse_csv(path)
+    elif suffix == ".json":
+        rows = parse_json(path)
+    else:
+        raise ValueError("Input file must be .csv or .json")
+
+    if not rows:
+        raise ValueError("No measurements found in input file.")
+
+    validate_measurements(rows)
+    return rows
 
 
-def run_literature_benchmark(L: int, deltas: List[float]) -> Dict[str, Any]:
-    """
-    Run XXZ boundary test using literature expectations.
+def validate_measurements(rows: list[dict[str, Any]]) -> None:
+    for row in rows:
+        L = row["L"]
+        ell = row["ell"]
+        entropy = row["entropy"]
 
-    Encoded logic:
-    - Gapped regimes (Δ < -1 or Δ > 1):
-        bounded entropy, saturating model preferred, ACCEPT
-    - Critical regime (-1 <= Δ <= 1):
-        c = 1, logarithmic entropy, log-linear model preferred, REJECT
-    """
-    print("=" * 60)
-    print("XXZ BOUNDARY TEST - LITERATURE BENCHMARK")
-    print("=" * 60)
-    print(f"L = {L}")
-    print(f"Δ values: {deltas}")
-    print()
+        if L <= 1:
+            raise ValueError(f"Invalid system size L={L}. Must be > 1.")
+        if not (1 <= ell <= L - 1):
+            raise ValueError(f"Invalid bipartition ell={ell} for L={L}. Must satisfy 1 <= ell <= L-1.")
+        if not np.isfinite(entropy):
+            raise ValueError(f"Invalid entropy value: {entropy}")
 
-    results: List[Dict[str, Any]] = []
 
-    for delta in deltas:
-        c = central_charge(delta)
-        predicted_S = cft_entanglement_entropy(L, c) if c is not None else None
+def compute_log_form_x(boundary: str, L: int, ell: int) -> tuple[float, float]:
+    """Return (chord_length, x=log(chord_length)) for the appropriate boundary form."""
+    sine_term = math.sin(math.pi * ell / L)
+    if sine_term <= 0.0:
+        raise ValueError(f"Non-positive sine term for L={L}, ell={ell}.")
 
-        exp_scope = expected_scope(delta)
-        scaling = expected_scaling_behavior(delta)
-        aic_sign = expected_delta_aic_sign(delta)
-        preferred_model = expected_preferred_model(delta)
-        exp_verdict = expected_verdict(delta)
+    if boundary == "periodic":
+        chord_length = (L / math.pi) * sine_term
+    elif boundary == "open":
+        chord_length = (2.0 * L / math.pi) * sine_term
+    else:
+        raise ValueError(f"Unsupported boundary: {boundary}")
 
-        # In this literature benchmark, the runner's verdict is exactly the
-        # benchmark expectation it is encoding.
-        verdict = exp_verdict
-        scope_correct = verdict == exp_verdict
+    if chord_length <= 0.0:
+        raise ValueError(f"Non-positive chord length for L={L}, ell={ell}, boundary={boundary}")
 
-        result = {
-            "delta": delta,
-            "central_charge": c,
-            "expected_scope": exp_scope,
-            "predicted_entropy": predicted_S,
-            "scaling_behavior": scaling,
-            # Legacy key kept for compatibility:
-            "expected_aic_sign": aic_sign,
-            "expected_delta_aic_sat_minus_log_sign": aic_sign,
-            "expected_preferred_model": preferred_model,
-            "expected_verdict": exp_verdict,
-            "verdict": verdict,
-            "scope_correct": scope_correct,
-        }
-        results.append(result)
+    return chord_length, math.log(chord_length)
 
-        print(f"[XXZ] Δ = {delta:.2f}")
-        if c is None:
-            print("      c = N/A, S_pred = SATURATES")
-        else:
-            print(f"      c = {c:.1f}, S_pred = {predicted_S:.4f}")
-        print(f"      Expected: {exp_scope}, Verdict: {verdict}")
-        print()
 
-    scope_matches = sum(1 for r in results if r["scope_correct"])
-    total = len(results)
+def build_group_key(row: dict[str, Any]) -> tuple[float, str, int]:
+    return (float(row["delta"]), str(row["boundary"]), int(row["L"]))
 
-    print("=" * 60)
-    print("SUMMARY")
-    print("=" * 60)
-    print(f"{'Δ':>6} | {'c':>4} | {'Expected':>12} | {'S_pred':>10} | {'Verdict':>8} | {'Scope OK':>8}")
-    print("-" * 72)
-    for r in results:
-        c_display = "N/A" if r["central_charge"] is None else f"{r['central_charge']:.1f}"
-        s_display = "SATURATE" if r["predicted_entropy"] is None else f"{r['predicted_entropy']:.4f}"
-        print(
-            f"{r['delta']:>6.2f} | {c_display:>4} | {r['expected_scope']:>12} | "
-            f"{s_display:>10} | {r['verdict']:>8} | {str(r['scope_correct']):>8}"
+
+def parity_matches(ell: int, parity_filter: str) -> bool:
+    if parity_filter == "all":
+        return True
+    if parity_filter == "even":
+        return ell % 2 == 0
+    if parity_filter == "odd":
+        return ell % 2 == 1
+    raise ValueError(f"Unsupported parity_filter: {parity_filter}")
+
+
+def annotate_rows(
+    rows: list[dict[str, Any]],
+    exclude_endpoints: int,
+    parity_filter: str,
+) -> list[dict[str, Any]]:
+    """Add fit-related fields to each measurement row without discarding raw data."""
+    annotated: list[dict[str, Any]] = []
+
+    for row in rows:
+        delta = float(row["delta"])
+        boundary = str(row["boundary"])
+        L = int(row["L"])
+        ell = int(row["ell"])
+        entropy = float(row["entropy"])
+
+        chord_length, x_value = compute_log_form_x(boundary, L, ell)
+
+        include = True
+        exclusion_reason = ""
+
+        if ell <= exclude_endpoints or ell >= (L - exclude_endpoints):
+            include = False
+            exclusion_reason = f"endpoint_window_{exclude_endpoints}"
+
+        if include and not parity_matches(ell, parity_filter):
+            include = False
+            exclusion_reason = f"parity_filter_{parity_filter}"
+
+        annotated.append(
+            {
+                "delta": delta,
+                "boundary": boundary,
+                "L": L,
+                "ell": ell,
+                "entropy": entropy,
+                "chord_length": float(chord_length),
+                "log_form_x": float(x_value),
+                "included_in_fit": include,
+                "exclusion_reason": exclusion_reason or None,
+                "source_row": row["source_row"],
+            }
         )
-    print("-" * 72)
-    print(f"Scope matches: {scope_matches}/{total}")
 
-    all_correct = all(r["scope_correct"] for r in results)
-    overall = "SCOPE_VALIDATED" if all_correct else "SCOPE_MISMATCH"
+    return annotated
+
+
+def fit_linear_model(x: np.ndarray, y: np.ndarray) -> dict[str, Any]:
+    if x.size < MIN_FIT_POINTS:
+        raise ValueError(f"Need at least {MIN_FIT_POINTS} points to fit; got {x.size}.")
+
+    X = np.column_stack((x, np.ones_like(x)))
+    coef, _, _, _ = np.linalg.lstsq(X, y, rcond=None)
+    slope = float(coef[0])
+    intercept = float(coef[1])
+
+    y_hat = slope * x + intercept
+    residuals = y - y_hat
+
+    rss = float(np.sum(residuals ** 2))
+    rmse = float(np.sqrt(np.mean(residuals ** 2)))
+    tss = float(np.sum((y - np.mean(y)) ** 2))
+    r_squared = 1.0 if tss == 0.0 else float(1.0 - rss / tss)
 
     return {
-        "metadata": {
-            "run_id": f"literature_{L}_{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "test": "P2_XXZ_BOUNDARY_LITERATURE",
-            "version": "1.1.0",
-            "L": L,
-        },
-        "results": results,
-        "summary": {
-            "scope_matches": scope_matches,
-            "total": total,
-            "overall_verdict": overall,
-            "all_correct": all_correct,
-        },
-        "conclusion": {
-            "framework_scope_validated": all_correct,
-            "transition_at_delta_1": all_correct,
-        },
+        "slope": slope,
+        "intercept": intercept,
+        "rss": rss,
+        "rmse": rmse,
+        "r_squared": r_squared,
+        "residual_mean": float(np.mean(residuals)),
+        "residual_std": float(np.std(residuals, ddof=0)),
+        "y_hat": y_hat.tolist(),
+        "residuals": residuals.tolist(),
     }
 
 
-def write_output(res: Dict[str, Any], out_dir: Path, output_mode: str = "append") -> None:
-    """Write results to output directory."""
-    out_dir = resolve_output_dir(Path(out_dir), res["metadata"]["run_id"], mode=output_mode)
+def estimate_ceff_from_slope(boundary: str, slope: float) -> float:
+    """
+    Effective central charge estimate from fitted slope.
 
-    with open(out_dir / "metadata.json", "w", encoding="utf-8") as f:
-        json.dump(res["metadata"], f, indent=2)
+    Periodic: S ~ (c/3) log(chord) + const  => c_eff = 3*slope
+    Open:     S ~ (c/6) log(chord) + const  => c_eff = 6*slope
+    """
+    if boundary == "periodic":
+        return 3.0 * slope
+    if boundary == "open":
+        return 6.0 * slope
+    raise ValueError(f"Unsupported boundary: {boundary}")
 
-    with open(out_dir / "summary.json", "w", encoding="utf-8") as f:
-        json.dump(res["summary"], f, indent=2)
 
-    with open(out_dir / "conclusion.json", "w", encoding="utf-8") as f:
-        json.dump(res["conclusion"], f, indent=2)
+def group_rows(rows: list[dict[str, Any]]) -> dict[tuple[float, str, int], list[dict[str, Any]]]:
+    grouped: dict[tuple[float, str, int], list[dict[str, Any]]] = defaultdict(list)
+    for row in rows:
+        grouped[build_group_key(row)].append(row)
 
-    for r in res["results"]:
-        delta_dir = out_dir / f"delta_{r['delta']:.2f}"
-        delta_dir.mkdir(exist_ok=True)
+    for key in grouped:
+        grouped[key].sort(key=lambda r: (r["ell"], r["source_row"]))
+    return dict(grouped)
 
-        with open(delta_dir / "result.json", "w", encoding="utf-8") as f:
-            json.dump(r, f, indent=2)
 
-    print(f"\n[XXZ] Results written to {out_dir}")
-    print(f"[XXZ] Overall verdict: {res['summary']['overall_verdict']}")
+def analyze_groups(
+    grouped_rows: dict[tuple[float, str, int], list[dict[str, Any]]],
+    estimate_ceff: bool,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    fit_summaries: list[dict[str, Any]] = []
+    fit_points: list[dict[str, Any]] = []
+
+    for (delta, boundary, L), rows in grouped_rows.items():
+        used_rows = [row for row in rows if row["included_in_fit"]]
+        skipped_rows = [row for row in rows if not row["included_in_fit"]]
+
+        summary: dict[str, Any] = {
+            "delta": delta,
+            "boundary": boundary,
+            "L": L,
+            "n_total": len(rows),
+            "n_used": len(used_rows),
+            "n_skipped": len(skipped_rows),
+            "fit_success": False,
+            "fit_error": None,
+        }
+
+        if len(used_rows) < MIN_FIT_POINTS:
+            summary["fit_error"] = f"Need at least {MIN_FIT_POINTS} included points; got {len(used_rows)}."
+            fit_summaries.append(summary)
+
+            for row in rows:
+                fit_points.append(
+                    {
+                        **row,
+                        "fitted_entropy": None,
+                        "residual": None,
+                    }
+                )
+            continue
+
+        x = np.asarray([row["log_form_x"] for row in used_rows], dtype=np.float64)
+        y = np.asarray([row["entropy"] for row in used_rows], dtype=np.float64)
+
+        fit = fit_linear_model(x, y)
+
+        summary.update(
+            {
+                "fit_success": True,
+                "slope": fit["slope"],
+                "intercept": fit["intercept"],
+                "rss": fit["rss"],
+                "rmse": fit["rmse"],
+                "r_squared": fit["r_squared"],
+                "residual_mean": fit["residual_mean"],
+                "residual_std": fit["residual_std"],
+            }
+        )
+
+        if estimate_ceff:
+            summary["c_eff"] = estimate_ceff_from_slope(boundary, fit["slope"])
+
+        y_hat_lookup = {
+            (row["ell"], row["source_row"]): (fitted, resid)
+            for row, fitted, resid in zip(used_rows, fit["y_hat"], fit["residuals"])
+        }
+
+        for row in rows:
+            key = (row["ell"], row["source_row"])
+            fitted_entropy, residual = y_hat_lookup.get(key, (None, None))
+            fit_points.append(
+                {
+                    **row,
+                    "fitted_entropy": fitted_entropy,
+                    "residual": residual,
+                }
+            )
+
+        fit_summaries.append(summary)
+
+    fit_summaries.sort(key=lambda r: (r["delta"], r["boundary"], r["L"]))
+    fit_points.sort(key=lambda r: (r["delta"], r["boundary"], r["L"], r["ell"], r["source_row"]))
+    return fit_summaries, fit_points
+
+
+def summarize_run(
+    raw_rows: list[dict[str, Any]],
+    fit_summaries: list[dict[str, Any]],
+) -> dict[str, Any]:
+    boundaries = sorted({row["boundary"] for row in raw_rows})
+    deltas = sorted({float(row["delta"]) for row in raw_rows})
+    system_sizes = sorted({int(row["L"]) for row in raw_rows})
+
+    successful = [row for row in fit_summaries if row["fit_success"]]
+    failed = [row for row in fit_summaries if not row["fit_success"]]
+
+    summary: dict[str, Any] = {
+        "measurement_count": len(raw_rows),
+        "group_count": len(fit_summaries),
+        "fit_success_count": len(successful),
+        "fit_failure_count": len(failed),
+        "boundaries": boundaries,
+        "delta_values": deltas,
+        "system_sizes": system_sizes,
+    }
+
+    if successful:
+        summary["r_squared_min"] = min(row["r_squared"] for row in successful)
+        summary["r_squared_max"] = max(row["r_squared"] for row in successful)
+        summary["rmse_min"] = min(row["rmse"] for row in successful)
+        summary["rmse_max"] = max(row["rmse"] for row in successful)
+
+    return summary
+
+
+def prepare_run_directory(output_root: Path, run_id: str) -> Path:
+    output_root.mkdir(parents=True, exist_ok=True)
+
+    candidate = output_root / f"run_{run_id}"
+    suffix = 1
+    while candidate.exists():
+        candidate = output_root / f"run_{run_id}_{suffix:02d}"
+        suffix += 1
+
+    candidate.mkdir(parents=False, exist_ok=False)
+    return candidate
+
+
+def write_json(path: Path, payload: Any) -> None:
+    with path.open("w", encoding="utf-8") as handle:
+        json.dump(payload, handle, indent=2)
+        handle.write("\n")
+
+
+def write_csv(path: Path, rows: list[dict[str, Any]], fieldnames: list[str]) -> None:
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def build_arg_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="XXZ boundary data-first runner")
+    parser.add_argument("--input", required=True, help="Path to .csv or .json entropy measurements.")
+    parser.add_argument("--output", required=True, help="Root output directory.")
+    parser.add_argument(
+        "--exclude-endpoints",
+        type=int,
+        default=0,
+        help="Exclude ell <= n and ell >= L-n from the fit. Default: 0",
+    )
+    parser.add_argument(
+        "--parity-filter",
+        choices=["all", "even", "odd"],
+        default="all",
+        help="Optional parity filter for ell to inspect OBC oscillation sensitivity.",
+    )
+    parser.add_argument(
+        "--estimate-ceff",
+        action="store_true",
+        help="Include c_eff estimate derived from fitted slope.",
+    )
+    parser.add_argument(
+        "--label",
+        default=None,
+        help="Optional free-text label stored in config.",
+    )
+    return parser
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="P2 XXZ Boundary Test - Literature Benchmark")
-    parser.add_argument("--L", type=int, default=8, help="System size")
-    parser.add_argument(
-        "--deltas",
-        default="0.5,1.0,1.1,1.5,2.0",
-        help="Comma-separated Δ values to test",
-    )
-    parser.add_argument("--output", required=True, help="Output directory (base directory)")
-    parser.add_argument(
-        "--output-mode",
-        choices=["append", "overwrite"],
-        default="append",
-        help="append: create run_<id> subdir when output exists; overwrite: write directly into output dir",
-    )
-    args = parser.parse_args()
+    args = build_arg_parser().parse_args()
 
-    deltas = [float(x.strip()) for x in args.deltas.split(",") if x.strip()]
-    res = run_literature_benchmark(args.L, deltas)
-    write_output(res, Path(args.output), output_mode=args.output_mode)
+    if args.exclude_endpoints < 0:
+        raise ValueError("--exclude-endpoints must be >= 0")
+
+    config = RunConfig(
+        input_path=args.input,
+        output_root=args.output,
+        exclude_endpoints=args.exclude_endpoints,
+        parity_filter=args.parity_filter,
+        estimate_ceff=args.estimate_ceff,
+        label=args.label,
+    )
+
+    raw_rows = load_measurements(config.input_path)
+    annotated_rows = annotate_rows(
+        rows=raw_rows,
+        exclude_endpoints=config.exclude_endpoints,
+        parity_filter=config.parity_filter,
+    )
+    grouped = group_rows(annotated_rows)
+    fit_summaries, fit_points = analyze_groups(grouped, estimate_ceff=config.estimate_ceff)
+    run_summary = summarize_run(raw_rows, fit_summaries)
+
+    run_id = make_run_id()
+    timestamp_utc = utc_now_iso()
+
+    result = {
+        "metadata": {
+            "run_id": run_id,
+            "timestamp_utc": timestamp_utc,
+            "test": TEST_NAME,
+            "version": VERSION,
+            "runner": "xxz_boundary_data",
+        },
+        "config": asdict(config),
+        "summary": run_summary,
+        "fits": fit_summaries,
+        "fit_points": fit_points,
+    }
+
+    run_dir = prepare_run_directory(Path(config.output_root), run_id)
+
+    write_json(run_dir / "metadata.json", result["metadata"])
+    write_json(run_dir / "config.json", result["config"])
+    write_json(run_dir / "summary.json", result["summary"])
+    write_json(run_dir / "fits.json", result["fits"])
+    write_json(run_dir / "fit_points.json", result["fit_points"])
+    write_json(run_dir / "run.json", result)
+
+    write_csv(
+        run_dir / "fits.csv",
+        fit_summaries,
+        [
+            "delta",
+            "boundary",
+            "L",
+            "n_total",
+            "n_used",
+            "n_skipped",
+            "fit_success",
+            "fit_error",
+            "slope",
+            "intercept",
+            "rss",
+            "rmse",
+            "r_squared",
+            "residual_mean",
+            "residual_std",
+            "c_eff",
+        ],
+    )
+    write_csv(
+        run_dir / "fit_points.csv",
+        fit_points,
+        [
+            "delta",
+            "boundary",
+            "L",
+            "ell",
+            "entropy",
+            "chord_length",
+            "log_form_x",
+            "included_in_fit",
+            "exclusion_reason",
+            "fitted_entropy",
+            "residual",
+            "source_row",
+        ],
+    )
+
+    print(f"[XXZ] Run directory: {run_dir}")
+    print(
+        f"[XXZ] measurements={run_summary['measurement_count']} "
+        f"groups={run_summary['group_count']} "
+        f"fit_success={run_summary['fit_success_count']} "
+        f"fit_failure={run_summary['fit_failure_count']}"
+    )
 
 
 if __name__ == "__main__":
