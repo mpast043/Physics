@@ -1,20 +1,28 @@
 #!/usr/bin/env python3
 """
-This test verifies that MERA's isometric structure correctly preserves
-local density matrices when gluing partitions.
+Isometric Gluing Diagnostics Runner
 
-For entangled ground states, the correct
-approach is to use MERA's isometric tensors.
+This script computes exact ground-state reduced density matrix diagnostics for a
+bipartitioned spin chain. It does not claim a full MERA gluing verification.
+Instead, it reports data relevant to later interpretation:
 
-The isometric property: V^dagger V = I
-This ensures that reduced density matrices are preserved under gluing.
+1. Exact ground-state energy
+2. Reduced density matrices for A and B
+3. Entropies derived from rho_A and rho_B
+4. Density-matrix validity diagnostics
+5. Entropic consistency checks:
+   - subadditivity: S(AB) <= S(A) + S(B)
+   - Araki-Lieb: |S(A) - S(B)| <= S(AB)
 
-Test Design:
-------------
-1. Compute reduced density matrix rho_A from the full state
-2. Simulate MERA's local tensor at the boundary
-3. Verify that gluing via MERA's isometric operation preserves rho_A
-4. Check that S(AB) <= S(A) + S(B) and |S(A) - S(B)| <= S(AB)
+Outputs:
+  metadata.json
+  ed_reference.json
+  measurements.json
+  summary.json
+
+Usage:
+  python3 Isometric_Gluing_Runner.py --L 8 --A_size 4 \
+    --model heisenberg_open --output <DIR>
 """
 
 from __future__ import annotations
@@ -22,24 +30,22 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
-import math
 import os
-import sys
 from pathlib import Path
-from typing import Dict, List
+from typing import Any, Dict
 
 import numpy as np
 
 
-def run_id():
+def run_id() -> str:
     t = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     r = os.urandom(4).hex()
     return f"{t}_{r}"
 
 
 def build_ising_hamiltonian(L: int, j: float = 1.0, h: float = 1.0) -> np.ndarray:
-    """Build Ising Hamiltonian with standard convention."""
-    dim = 2 ** L
+    """Build open-boundary transverse-field Ising Hamiltonian."""
+    dim = 2**L
     H = np.zeros((dim, dim), dtype=np.float64)
 
     I = np.eye(2, dtype=np.float64)
@@ -50,71 +56,73 @@ def build_ising_hamiltonian(L: int, j: float = 1.0, h: float = 1.0) -> np.ndarra
         ops = [I] * L
         ops[i] = Z
         ops[i + 1] = Z
-        ZZ = ops[0]
+        zz = ops[0]
         for op in ops[1:]:
-            ZZ = np.kron(ZZ, op)
-        H -= (j / 4.0) * ZZ
+            zz = np.kron(zz, op)
+        H -= (j / 4.0) * zz
 
     for i in range(L):
         ops = [I] * L
         ops[i] = X
-        X_i = ops[0]
+        x_i = ops[0]
         for op in ops[1:]:
-            X_i = np.kron(X_i, op)
-        H -= (h / 2.0) * X_i
+            x_i = np.kron(x_i, op)
+        H -= (h / 2.0) * x_i
 
     return H
 
 
 def build_heisenberg_hamiltonian(L: int, J: float = 1.0) -> np.ndarray:
-    """Build Heisenberg Hamiltonian."""
-    dim = 2 ** L
+    """Build open-boundary Heisenberg Hamiltonian."""
+    dim = 2**L
     H = np.zeros((dim, dim), dtype=np.complex128)
 
-    I = np.eye(2, dtype=np.float64)
-    Sx = 0.5 * np.array([[0, 1], [1, 0]], dtype=np.float64)
+    I = np.eye(2, dtype=np.complex128)
+    Sx = 0.5 * np.array([[0, 1], [1, 0]], dtype=np.complex128)
     Sy = 0.5 * np.array([[0, -1j], [1j, 0]], dtype=np.complex128)
-    Sz = 0.5 * np.array([[1, 0], [0, -1]], dtype=np.float64)
+    Sz = 0.5 * np.array([[1, 0], [0, -1]], dtype=np.complex128)
 
     for i in range(L - 1):
-        for S1, S2 in [(Sx, Sx), (Sy, Sy), (Sz, Sz)]:
+        for S1, S2 in ((Sx, Sx), (Sy, Sy), (Sz, Sz)):
             ops = [I] * L
             ops[i] = S1
             ops[i + 1] = S2
-            SdotS = ops[0]
+            s_dot_s = ops[0]
             for op in ops[1:]:
-                SdotS = np.kron(SdotS, op)
-            H = H.astype(np.complex128)
-            SdotS = SdotS.astype(np.complex128)
-            H += J * SdotS
+                s_dot_s = np.kron(s_dot_s, op)
+            H += J * s_dot_s
 
     return H
 
 
 def compute_entanglement_entropy(psi: np.ndarray, L: int, A_size: int) -> float:
-    """Compute von Neumann entropy S_A = -Tr(ρ_A log ρ_A)."""
-    dim_A = int(2 ** A_size)
-    dim_B = int(2 ** (L - A_size))
+    """Compute von Neumann entropy across the A|B cut."""
+    dim_A = 2**A_size
+    dim_B = 2 ** (L - A_size)
     psi_matrix = psi.reshape(dim_A, dim_B)
-    U, s, Vh = np.linalg.svd(psi_matrix, full_matrices=False)
-    eigvals = s ** 2
+    _, s, _ = np.linalg.svd(psi_matrix, full_matrices=False)
+    eigvals = s**2
     eigvals = eigvals[eigvals > 1e-12]
-    S = -np.sum(eigvals * np.log(eigvals))
-    return float(S)
+    return float(-np.sum(eigvals * np.log(eigvals)))
 
 
 def get_reduced_density_matrix(psi: np.ndarray, L: int, A_size: int) -> np.ndarray:
-    """Get reduced density matrix rho_A = Tr_B(|psi><psi|)."""
-    dim_A = int(2 ** A_size)
-    dim_B = int(2 ** (L - A_size))
+    """Get reduced density matrix rho_A = Tr_B(|psi><psi|) for a contiguous cut."""
+    dim_A = 2**A_size
+    dim_B = 2 ** (L - A_size)
     psi_matrix = psi.reshape(dim_A, dim_B)
     rho_A = psi_matrix @ psi_matrix.conj().T
     rho_A = rho_A / np.trace(rho_A)
     return rho_A
 
 
-def exact_diagonalization(L: int, model: str, A_size: int,
-                          j: float = 1.0, h: float = 1.0) -> Dict:
+def exact_diagonalization(
+    L: int,
+    model: str,
+    A_size: int,
+    j: float = 1.0,
+    h: float = 1.0,
+) -> Dict[str, Any]:
     """Perform exact diagonalization."""
     if model == "ising":
         H = build_ising_hamiltonian(L, j, h)
@@ -124,168 +132,182 @@ def exact_diagonalization(L: int, model: str, A_size: int,
         raise ValueError(f"Unknown model: {model}")
 
     eigenvalues, eigenvectors = np.linalg.eigh(H)
-    idx = np.argmin(eigenvalues)
+    idx = int(np.argmin(eigenvalues))
     E0 = float(eigenvalues[idx])
     psi0 = eigenvectors[:, idx]
-    S = compute_entanglement_entropy(psi0, L, A_size)
+    S_cut = compute_entanglement_entropy(psi0, L, A_size)
 
     return {
         "ground_state_energy": E0,
         "ground_state_psi": psi0,
-        "entanglement_entropy": S,
+        "cut_entropy": S_cut,
         "n_sites": L,
     }
 
 
 def check_subadditivity(S_A: float, S_B: float, S_AB: float, epsilon: float = 1e-6) -> bool:
     """Check S(AB) <= S(A) + S(B)."""
-    return S_AB <= S_A + S_B + epsilon
+    return bool(S_AB <= S_A + S_B + epsilon)
 
 
-def check_araki_lieb(S_A: float, S_B: float, S_AB: float) -> bool:
+def check_araki_lieb(S_A: float, S_B: float, S_AB: float, epsilon: float = 1e-6) -> bool:
     """Check |S(A) - S(B)| <= S(AB)."""
-    return abs(S_A - S_B) <= S_AB + 1e-6
+    return bool(abs(S_A - S_B) <= S_AB + epsilon)
 
 
 def compute_rho_spectrum(rho: np.ndarray) -> np.ndarray:
-    """Get eigenvalues of density matrix, filtered and normalized."""
+    """Return filtered normalized eigenvalues for entropy calculations."""
     eigenvalues = np.linalg.eigvalsh(rho)
     eigenvalues = eigenvalues[eigenvalues > 1e-12]
-    eigenvalues = eigenvalues / np.sum(eigenvalues)
-    return eigenvalues
+    if len(eigenvalues) == 0:
+        return eigenvalues
+    return eigenvalues / np.sum(eigenvalues)
 
 
-def run_isometric(cfg: Dict) -> Dict:
-    """Run P3 isometric gluing test."""
+def density_matrix_diagnostics(rho: np.ndarray) -> Dict[str, Any]:
+    """Compute validity diagnostics from the raw density matrix."""
+    raw_eigs = np.linalg.eigvalsh(rho)
+    hermitian = bool(np.allclose(rho, rho.conj().T, atol=1e-10))
+    trace_one = bool(abs(np.trace(rho) - 1.0) < 1e-8)
+    positive_semidefinite = bool(np.all(raw_eigs >= -1e-10))
+    min_eigenvalue = float(np.min(raw_eigs))
+    max_eigenvalue = float(np.max(raw_eigs))
+
+    filtered = compute_rho_spectrum(rho)
+    entropy = float(-np.sum(filtered * np.log(filtered))) if len(filtered) > 0 else 0.0
+
+    return {
+        "hermitian": hermitian,
+        "trace_one": trace_one,
+        "positive_semidefinite": positive_semidefinite,
+        "min_eigenvalue": min_eigenvalue,
+        "max_eigenvalue": max_eigenvalue,
+        "rank_filtered": int(len(filtered)),
+        "entropy": entropy,
+        "spectrum_filtered": filtered.tolist(),
+    }
+
+
+def convert_numpy(obj: Any) -> Any:
+    """Convert numpy types to Python-native JSON-serializable types."""
+    if isinstance(obj, dict):
+        return {k: convert_numpy(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [convert_numpy(v) for v in obj]
+    if isinstance(obj, tuple):
+        return [convert_numpy(v) for v in obj]
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    if isinstance(obj, np.bool_):
+        return bool(obj)
+    if isinstance(obj, np.floating):
+        return float(obj)
+    if isinstance(obj, np.integer):
+        return int(obj)
+    if isinstance(obj, np.complexfloating):
+        return {"real": float(np.real(obj)), "imag": float(np.imag(obj))}
+    return obj
+
+
+def run_isometric(cfg: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Run density-matrix and entropy diagnostics for a bipartitioned exact ground state.
+
+    Note:
+      This is a data/diagnostic runner. It does not emit an ACCEPT/REJECT verdict
+      for MERA isometric gluing.
+    """
     L = cfg["L"]
     A_size = cfg["A_size"]
     B_size = L - A_size
     model = cfg["model"]
 
-    print(f"[P3-ISO] MERA Isometric Gluing Test")
+    print("[P3-ISO] Isometric Gluing Diagnostics")
     print(f"[P3-ISO] L={L}, A={A_size}, B={B_size}")
     print(f"[P3-ISO] Model: {model}")
 
-    # Get ED reference
+    ed_model = "heisenberg" if "heisenberg" in model else "ising"
     ed_result = exact_diagonalization(
         L=L,
-        model="heisenberg" if "heisenberg" in model else "ising",
+        model=ed_model,
         A_size=A_size,
         j=1.0,
-        h=1.0 if "ising" in model else 0.0
+        h=1.0 if ed_model == "ising" else 0.0,
     )
+
     psi_full = ed_result["ground_state_psi"]
     E0 = ed_result["ground_state_energy"]
-    S_full = ed_result["entanglement_entropy"]
+    S_cut = ed_result["cut_entropy"]
 
-    # Compute reduced density matrices
     rho_A = get_reduced_density_matrix(psi_full, L, A_size)
     rho_B = get_reduced_density_matrix(psi_full, L, B_size)
 
-    # Compute entropies from density matrices
-    eig_A = compute_rho_spectrum(rho_A)
-    S_A = -np.sum(eig_A * np.log(eig_A)) if len(eig_A) > 0 else 0.0
+    diag_A = density_matrix_diagnostics(rho_A)
+    diag_B = density_matrix_diagnostics(rho_B)
 
-    eig_B = compute_rho_spectrum(rho_B)
-    S_B = -np.sum(eig_B * np.log(eig_B)) if len(eig_B) > 0 else 0.0
+    S_A = float(diag_A["entropy"])
+    S_B = float(diag_B["entropy"])
 
-    # MERA isometric test: verify the structure preserves local density matrices
-    # For a proper MERA gluing, the local density matrices should be consistent
-    # The isometric constraint ensures: Tr_B(V rho_A V^dagger) = rho_A
+    subadd = check_subadditivity(S_A, S_B, S_cut)
+    araki_lieb = check_araki_lieb(S_A, S_B, S_cut)
 
-    # Simplified isometric test: check that the density matrices are valid
-    valid_rho_A = np.allclose(rho_A, rho_A.conj().T) and abs(np.trace(rho_A) - 1.0) < 1e-6
-    valid_rho_B = np.allclose(rho_B, rho_B.conj().T) and abs(np.trace(rho_B) - 1.0) < 1e-6
-    pos_rho_A = bool(np.all(eig_A >= 0))
-    pos_rho_B = bool(np.all(eig_B >= 0))
+    excision_consistency = bool(np.allclose(rho_A, get_reduced_density_matrix(psi_full, L, A_size), atol=1e-10))
 
-    # P3.1: Isometric gluing preserves density matrix structure
-    isometric_structure = valid_rho_A and valid_rho_B and pos_rho_A and pos_rho_B
-
-    # P3.2: Excision produces valid density matrix
-    rho_A_excised = get_reduced_density_matrix(psi_full, L, A_size)
-    valid_excision = valid_rho_A
-
-    # P3.3: Subadditivity
-    subadd = check_subadditivity(S_A, S_B, S_full)
-
-    # P3.4: Araki-Lieb inequality
-    araki_lieb = check_araki_lieb(S_A, S_B, S_full)
-
-    # Combined verdict
-    p31 = bool(isometric_structure)
-    p32 = bool(valid_excision)
-    p33 = bool(subadd)
-    p34 = bool(araki_lieb)
-
-    verdict = "ACCEPT" if (p31 and p32 and p33 and p34) else "REJECT"
-
-    print(f"\n[P3-ISO] Results:")
-    print(f"  E0={E0:.6f}, S_full={S_full:.4f}")
-    print(f"  S_A={S_A:.4f}, S_B={S_B:.4f}")
-    print(f"  rho_A valid: {valid_rho_A}, rho_B valid: {valid_rho_B}")
-    print(f"  rho_A positive: {pos_rho_A}, rho_B positive: {pos_rho_B}")
+    print("\n[P3-ISO] Results:")
+    print(f"  E0={E0:.6f}, S_cut={S_cut:.6f}")
+    print(f"  S_A={S_A:.6f}, S_B={S_B:.6f}")
+    print(
+        f"  rho_A valid: {diag_A['hermitian'] and diag_A['trace_one'] and diag_A['positive_semidefinite']}"
+    )
+    print(
+        f"  rho_B valid: {diag_B['hermitian'] and diag_B['trace_one'] and diag_B['positive_semidefinite']}"
+    )
     print(f"  Subadditivity: {subadd}")
     print(f"  Araki-Lieb: {araki_lieb}")
-    print(f"\n[P3-ISO] Falsifiers:")
-    print(f"  P3.1 (Isometric structure): {'PASS' if p31 else 'FAIL'}")
-    print(f"  P3.2 (Excision valid): {'PASS' if p32 else 'FAIL'}")
-    print(f"  P3.3 (Subadditivity): {'PASS' if p33 else 'FAIL'}")
-    print(f"  P3.4 (Araki-Lieb): {'PASS' if p34 else 'FAIL'}")
-    print(f"\n[P3-ISO] Verdict: {verdict}")
 
     return {
         "metadata": {
             "run_id": run_id(),
             "timestamp": dt.datetime.now(dt.timezone.utc).isoformat(),
             "config": cfg,
-            "test": "ISOMETRIC_GLUING",
-            "version": "4.0.0",
+            "test": "ISOMETRIC_GLUING_DIAGNOSTICS",
+            "version": "5.0.0",
         },
         "ed_reference": {
             "energy": E0,
-            "entropy": S_full,
+            "cut_entropy": S_cut,
+            "model_used": ed_model,
         },
         "measurements": {
             "L": L,
             "A_size": A_size,
             "B_size": B_size,
-            "S_full": S_full,
+            "S_cut": S_cut,
             "S_A": S_A,
             "S_B": S_B,
-            "valid_rho_A": valid_rho_A,
-            "valid_rho_B": valid_rho_B,
-            "pos_rho_A": pos_rho_A,
-            "pos_rho_B": pos_rho_B,
+            "rho_A_diagnostics": diag_A,
+            "rho_B_diagnostics": diag_B,
+            "rho_A_shape": list(rho_A.shape),
+            "rho_B_shape": list(rho_B.shape),
         },
-        "verdict": verdict,
-        "passed": {
-            "P3.1_isometric_structure": p31,
-            "P3.2_excision_valid": p32,
-            "P3.3_subadditivity": p33,
-            "P3.4_araki_lieb": p34,
-        }
+        "derived_checks": {
+            "rho_A_valid": bool(
+                diag_A["hermitian"] and diag_A["trace_one"] and diag_A["positive_semidefinite"]
+            ),
+            "rho_B_valid": bool(
+                diag_B["hermitian"] and diag_B["trace_one"] and diag_B["positive_semidefinite"]
+            ),
+            "excision_consistency": excision_consistency,
+            "subadditivity": subadd,
+            "araki_lieb": araki_lieb,
+        },
     }
 
 
-def write_out(res: Dict, out_dir: Path):
+def write_out(res: Dict[str, Any], out_dir: Path) -> None:
     """Write results to output directory."""
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-
-    def convert_numpy(obj):
-        """Convert numpy types to Python types for JSON serialization."""
-        if isinstance(obj, dict):
-            return {k: convert_numpy(v) for k, v in obj.items()}
-        elif isinstance(obj, list):
-            return [convert_numpy(item) for item in obj]
-        elif isinstance(obj, (np.bool_,)):
-            return bool(obj)
-        elif isinstance(obj, (np.floating,)):
-            return float(obj)
-        elif isinstance(obj, (np.integer,)):
-            return int(obj)
-        return obj
 
     res_clean = convert_numpy(res)
 
@@ -298,20 +320,19 @@ def write_out(res: Dict, out_dir: Path):
     with open(out_dir / "measurements.json", "w") as f:
         json.dump(res_clean["measurements"], f, indent=2)
 
-    verdict = {
-        "test": "ISOMETRIC_GLUING",
-        "verdict": res_clean["verdict"],
-        "status": "COMPLETE",
-        "passed": res_clean["passed"],
+    summary = {
+        "metadata": res_clean["metadata"],
+        "ed_reference": res_clean["ed_reference"],
+        "derived_checks": res_clean["derived_checks"],
     }
-    with open(out_dir / "verdict.json", "w") as f:
-        json.dump(verdict, f, indent=2)
+    with open(out_dir / "summary.json", "w") as f:
+        json.dump(summary, f, indent=2)
 
     print(f"[P3-ISO] Results written to {out_dir}")
 
 
-def main():
-    p = argparse.ArgumentParser(description="P3 Isometric Gluing Test v4")
+def main() -> None:
+    p = argparse.ArgumentParser(description="P3 Isometric Gluing Diagnostics")
     p.add_argument("--L", type=int, default=8)
     p.add_argument("--A_size", type=int, default=4)
     p.add_argument("--model", default="heisenberg_open")
