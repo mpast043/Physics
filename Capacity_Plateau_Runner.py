@@ -10,7 +10,7 @@ Falsifiers:
   Monotonic entropy increase with chi
 
 Usage:
-  python3 exp_p2_capacity_plateau_runner_v2.py --L 8 --A_size 4 \\
+  python3 Capacity_Plateau_Runner.py --L 8 --A_size 4 \\
     --model ising_cyclic --chi_sweep 2,4,8,16 --seed 42 --output <DIR>
 """
 
@@ -102,18 +102,13 @@ def fit_loglin(log_chis, y):
     return {"a": a, "b": b, "rss": rss, "aic": aic, "bic": bic}
 
 
-def run_p2_mera(cfg: Dict) -> Dict:
+def real_mera(cfg: Dict) -> Dict:
     """
     Run P2 test using real MERA optimization.
 
     For L=8: Use exact diagonalization as ground truth
     For L>8: Use largest chi as reference
 
-    Verdict Rules:
-    - P2.1: Saturating model preferred (ΔAIC < 0)
-    - P2.2: Monotonic entropy increase with chi
-    - P2.3: Fidelity > 0.9 for all chi (when ED available)
-    - P2.4: |ΔAIC| >= 2 (strict) OR |ΔAIC| < 2 with high fidelity (tentative)
     """
     L = cfg["L"]
     A_size = cfg["A_size"]
@@ -121,13 +116,13 @@ def run_p2_mera(cfg: Dict) -> Dict:
     chi_sweep = cfg["chi_sweep"]
     seed = cfg["seed"]
     
-    print(f"[P2] Running capacity plateau scan for L={L}, A_size={A_size}")
-    print(f"[P2] Model: {model}, chi values: {chi_sweep}")
+    print(f"Running capacity plateau scan for L={L}, A_size={A_size}")
+    print(f"Model: {model}, chi values: {chi_sweep}")
     
     # Get ED reference for small systems
     ed_result = None
     if L <= 12:
-        print(f"[P2] Computing ED reference for L={L}...")
+        print(f"Computing ED reference for L={L}...")
         is_heis = "heisenberg" in model
         j = 1.0 if not is_heis else 1.0
         h = 1.0 if not is_heis else 0.0
@@ -138,12 +133,12 @@ def run_p2_mera(cfg: Dict) -> Dict:
             j=j, 
             h=h
         )
-        print(f"[P2] ED: E0={ed_result.ground_state_energy:.6f}, S={ed_result.entanglement_entropy:.6f}")
+        print(f"ED: E0={ed_result.ground_state_energy:.6f}, S={ed_result.entanglement_entropy:.6f}")
     
     # Run MERA for each chi
     records = []
     for chi in chi_sweep:
-        print(f"[P2] Optimizing MERA with chi={chi}...")
+        print(f"Optimizing MERA with chi={chi}...")
         
         opt_result = optimize_mera_for_fidelity(
             L=L,
@@ -168,7 +163,7 @@ def run_p2_mera(cfg: Dict) -> Dict:
             record["entropy_error"] = abs(opt_result.entropy - ed_result.entanglement_entropy)
         
         records.append(record)
-        print(f"[P2]   chi={chi}: S={opt_result.entropy:.4f}, fid={opt_result.fidelity:.6f}")
+        print(f"chi={chi}: S={opt_result.entropy:.4f}, fid={opt_result.fidelity:.6f}")
     
     # Model fitting
     chis_arr = np.array([r["chi"] for r in records], dtype=float)
@@ -192,7 +187,7 @@ def run_p2_mera(cfg: Dict) -> Dict:
             "run_id": run_id(),
             "timestamp": dt.datetime.utcnow().isoformat(),
             "config": cfg,
-            "test": "P2",
+            "test": "Capacity Plateau",
             "version": "2.0.0",
         },
         "measurements": records,
@@ -278,7 +273,7 @@ def main():
     print(f"[P2] Capacity Plateau Scan v2.0")
     print(f"[P2] L={cfg['L']}, A_size={cfg['A_size']}, model={cfg['model']}")
     
-    res = run_p2_mera(cfg)
+    res = real_mera(cfg)
     write_out(res, Path(a.output))
 
 
