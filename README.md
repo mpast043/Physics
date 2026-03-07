@@ -1,148 +1,382 @@
-# Physics
+# Streamlined MERA Runners
 
-Tensor network simulations for quantum many-body physics using Multi-scale Entanglement Renormalization Ansatz (MERA).
+This repository is a data-first runner suite for MERA-related experiments and diagnostics.
 
-## Overview
+The code is organized so that reusable numerical logic lives in `shared/`, while the top-level runner scripts handle only:
 
-This project implements MERA tensor network algorithms to study:
+- argument parsing
+- run-directory creation
+- looping / orchestration
+- summary generation
+- artifact writing
 
-- **Spectral dimension estimation** via return probability scaling
-- **Capacity scaling** (entanglement entropy vs bond dimension)
-- **Isometric constraints** and gluing diagnostics
-- **Boundary entropy** in critical systems (XXZ chain)
-- **Physical convergence** against exact diagonalization (ED)
+This split is intentional. It keeps the runner layer simple and makes it easier to debug or replace the MERA backend without rewriting every runner.
 
-All simulations use the [`quimb`](https://quimb.readthedocs.io/) library for tensor network operations.
+## What is included
 
----
+Top-level runners:
 
-## Directory Structure
+- `Spectral_Dimension_Runner.py`
+- `Capacity_Plateau_Runner.py`
+- `physical_convergence_runner.py`
+- `Isometric_Gluing_Runner.py`
+- `XXZ_Boundary_Runner.py`
 
+Shared modules:
+
+- `shared/mera_backend.py`
+- `shared/runner_utils.py`
+
+Supporting notes:
+
+- `REVIEW_NOTES.md`
+
+## Project structure
+
+```text
+streamlined_mera_runners/
+├── README.md
+├── REVIEW_NOTES.md
+├── Spectral_Dimension_Runner.py
+├── Capacity_Plateau_Runner.py
+├── physical_convergence_runner.py
+├── Isometric_Gluing_Runner.py
+├── XXZ_Boundary_Runner.py
+├── __init__.py
+└── shared/
+    ├── __init__.py
+    ├── mera_backend.py
+    └── runner_utils.py
 ```
-Physics/
-├── runners/
-│   ├── p1_spectral_dimension/      # Return probability → spectral dimension
-│   ├── p2_capacity_plateau/        # Entropy vs χ: saturation vs log-linear
-│   ├── p3_physical_convergence/    # MERA vs ED ground state energy & entropy
-│   └── p4_physical_convergence/    # XXZ boundary entropy scaling
-├── tools/
-│   └── benchmark.py                # Runners + result aggregation
-├── outputs/                         # JSON/CSV results + plots
-└── README.md                        # This file
-```
 
----
+## Design goals
 
-## Install
+This suite is designed around a few rules:
+
+1. data first
+   - runners collect measurements and write artifacts
+   - runners do not embed claim verdicts or acceptance logic
+
+2. shared backend
+   - ED, entanglement helpers, fidelity, and MERA optimization live in `shared/mera_backend.py`
+   - runners do not import each other for core numerical work
+
+3. reproducible outputs
+   - every run writes into a unique run directory
+   - JSON and CSV files are written atomically
+
+4. safe refactoring path
+   - the current backend keeps the existing quimb/TNOptimizer flow
+   - if you later replace it with a more paper-aligned environment-sweep implementation, the runner interfaces can stay stable
+
+## Runner overview
+
+### 1. Spectral Dimension Runner
+
+File: `Spectral_Dimension_Runner.py`
+
+Purpose:
+
+- synthetic calibration runner for spectral-dimension style fitting
+- generates return-probability data from a power-law model with multiplicative noise
+- estimates slope and inferred `d_s`
+
+Important note:
+
+- this is a synthetic pipeline-validation runner, not a physical diffusion/operator runner
+
+Typical outputs:
+
+- `metadata.json`
+- `config.json`
+- `raw.csv`
+- `summary.json`
+- `run.json`
+
+### 2. Capacity Plateau Runner
+
+File: `Capacity_Plateau_Runner.py`
+
+Purpose:
+
+- sweep MERA bond dimension `chi`
+- collect entropy, fidelity, and energy
+- compare simple growth models such as log-linear vs saturating behavior
+
+It uses the shared backend for:
+
+- exact diagonalization reference
+- MERA optimization
+- entropy / fidelity extraction
+
+Typical outputs:
+
+- `metadata.json`
+- `config.json`
+- `raw.csv`
+- `fits.json`
+- `summary.json`
+- `run.json`
+
+### 3. Physical Convergence Runner
+
+File: `physical_convergence_runner.py`
+
+Purpose:
+
+- run MERA optimization across `chi` and restarts
+- record raw restart-level outcomes
+- keep best-per-chi summaries separate from raw trial data
+
+This is the runner most directly tied to MERA optimization stability.
+
+Typical outputs:
+
+- `config.json`
+- `ed_reference.json`
+- `raw_results.csv`
+- `best_per_chi.csv`
+- `failures.json`
+- `summary.json`
+- `manifest.json`
+
+### 4. Isometric Gluing Runner
+
+File: `Isometric_Gluing_Runner.py`
+
+Purpose:
+
+- diagnostics runner for reduced density matrices and entropy consistency checks
+- evaluates a true `A|B` bipartition using the actual complement of `A`
+
+Important note:
+
+- this is a diagnostics runner, not a full proof of MERA gluing correctness
+
+Typical outputs:
+
+- `metadata.json`
+- `config.json`
+- `summary.json`
+- `run.json`
+
+### 5. XXZ Boundary Runner
+
+File: `XXZ_Boundary_Runner.py`
+
+Purpose:
+
+- data-first finite-size / boundary analysis for externally supplied XXZ entropy measurements
+- reads `.csv` or `.json` measurement files
+- performs grouped fits and summaries
+
+Typical outputs:
+
+- `metadata.json`
+- `config.json`
+- `group_fits.csv`
+- `summary.json`
+- `run.json`
+
+## Shared modules
+
+### `shared/mera_backend.py`
+
+This module centralizes reusable numerical work:
+
+- exact diagonalization
+- entanglement helpers
+- fidelity helpers
+- reduced density matrix helpers
+- MERA optimization wrapper
+
+It also applies conservative thread caps for native scientific libraries:
+
+- `OMP_NUM_THREADS`
+- `OPENBLAS_NUM_THREADS`
+- `MKL_NUM_THREADS`
+- `VECLIB_MAXIMUM_THREADS`
+- `NUMEXPR_NUM_THREADS`
+
+That is mainly to reduce instability from multi-threaded BLAS / OpenMP interactions while debugging the optimization path.
+
+### `shared/runner_utils.py`
+
+This module centralizes common runner utilities:
+
+- UTC timestamps
+- run ID creation
+- unique run-directory creation
+- atomic JSON writing
+- atomic CSV writing
+
+## Dependencies
+
+The exact environment depends on which runners you use, but the core stack is:
+
+- Python 3.10+
+- `numpy`
+- `quimb`
+- `scipy`
+- `threadpoolctl`
+
+Optional / backend-dependent:
+
+- `cotengra`
+- `torch`
+- local `entanglement_utils`
+
+A minimal install might look like:
 
 ```bash
-pip install quimb numpy scipy matplotlib
-# optional for tensor contractions
-pip install cotengra
+pip install numpy scipy quimb threadpoolctl cotengra torch
 ```
 
----
+If you already have a working environment for the original runners, use that first.
 
-## Quick Start
+## Running the suite
 
-### 1. Spectral Dimension (P1)
+Run from the repository root so the `shared` package resolves cleanly.
 
-Estimates the spectral dimension \(d_s\) from return probability decay:
-
-\[
-P(t) \sim t^{-d_s/2} \quad \Rightarrow \quad d_s = -2\,\frac{d\log P}{d\log t}
-\]
+### Spectral Dimension smoke test
 
 ```bash
-python runners/p1_spectral_dimension/Spectral_Dimension_Runner.py \
-  --model ising_cyclic --L 16 --steps 10000 --seed 42
+python Spectral_Dimension_Runner.py \
+  --true-ds 1.5 \
+  --noise-level 0.02 \
+  --steps 10,20,40,80,160 \
+  --seed 42 \
+  --output ./results/spectral_dimension
 ```
 
-**Output:** `outputs/p1_spectral_dimension/run_<timestamp>/measurements.csv`
-
-### 2. Capacity Plateau (P2)
-
-Tests whether entanglement entropy saturates (finite-system effect) or grows log-linearly:
-
-\[
-S(\chi) \stackrel{?}{=} S_{\max} - c\,\chi^{-\alpha}
-\quad\text{vs}\quad
-S(\chi) = S_\infty + \alpha\log\chi
-\]
+### Capacity Plateau smoke test
 
 ```bash
-python runners/p2_capacity_plateau/Capacity_Plateau_Runner.py \
-  --model ising_cyclic --L 16 --chi_sweep 8,16,32,64,128
+python Capacity_Plateau_Runner.py \
+  --L 8 \
+  --A-size 4 \
+  --model ising_cyclic \
+  --chi-sweep 2,4 \
+  --fit-steps 5 \
+  --seed 42 \
+  --output ./results/capacity_plateau
 ```
 
-**Output:** `outputs/p2_capacity_plateau/run_<timestamp>/results.csv`
-
-### 3. Physical Convergence (P3)
-
-Compares MERA vs ED ground-state energy and entanglement entropy:
+### Physical Convergence smoke test
 
 ```bash
-python runners/p3_physical_convergence/physical_convergence_runner.py \
-  --model ising_cyclic --L 12 --A_size 6 --chi_sweep 8,16,32 --restarts_per_chi 3
+python physical_convergence_runner.py \
+  --L 8 \
+  --A-size 4 \
+  --model ising_open \
+  --chi-sweep 2,4 \
+  --restarts-per-chi 1 \
+  --fit-steps 5 \
+  --seed 42 \
+  --output ./results/physical_convergence
 ```
 
-**Output:** `outputs/p3_physical_convergence/run_<timestamp>/results.json`
-
-### 4. XXZ Boundary Entropy (P4)
-
-Fits boundary entropy scaling in critical XXZ chains:
+### Isometric Gluing smoke test
 
 ```bash
-python runners/p4_xxz_boundary/xxz_boundary_runner.py \
-  --model XXZ --L 16 --chi_sweep 8,16,32,64 --bc open
+python Isometric_Gluing_Runner.py \
+  --L 8 \
+  --A-size 4 \
+  --model heisenberg_open \
+  --output ./results/isometric_gluing
 ```
 
-**Output:** `outputs/p4_xxz_boundary/run_<timestamp>/entropy_fit.csv`
+### XXZ Boundary smoke test
 
----
-
-## Output Format
-
-All runs produce:
-
-- **measurements.csv** / **results.csv** — step-wise or χ-sweep data
-- **config.json** — hyperparameters and seeds
-- **plots/** — log-log and linear visualizations
-- **runs/** — MERA checkpoints (optional)
-
-Sample CSV header:
-
-```csv
-step,return_prob,entropy,S_fit,S_resid,d_s_estimated,baseline
-10,0.1234,0.6543,0.6540,0.0012,1.386,0.0015
-20,0.0987,0.6821,0.6819,0.0009,1.379,0.0014
+```bash
+python XXZ_Boundary_Runner.py \
+  --input ./path/to/xxz_measurements.csv \
+  --output ./results/xxz_boundary
 ```
 
----
+## Output convention
 
-## Theory Summary
+All runners create a unique run directory below the requested output root.
 
-| Quantity | Definition | Scaling (critical 1D) |
-|----------|------------|------------------------|
-| **Spectral dimension** \(d_s\) | return probability \(P(t)\) | \(P(t)\sim t^{-d_s/2}\) |
-| **Capacity** \(S\) | entanglement entropy | \(S\sim \frac{c}{6}\log L\) |
-| **Boundary entropy** \(b\) | surface correction | \(S = \frac{c}{6}\log L + b\) |
+Example:
 
-For the 1D Ising universality class (c = 1/2), expect:
-- \(d_s = 1\)
-- \(S \sim 0.0833\log L\)
+```text
+results/capacity_plateau/run_CAPACITY_PLATEAU_20260306T190000Z_ab12cd34/
+```
 
----
+Within that directory, each runner writes a consistent core set of artifacts plus runner-specific raw data.
 
-## References
+Common files include:
 
-- [quimb documentation](https://quimb.readthedocs.io/)
-- MERA review: [Evenbly & Vidal, arXiv:1106.1082](https://arxiv.org/abs/1106.1082)
-- Spectral dimension: [Lohmayer et al., arXiv:0906.2366](https://arxiv.org/abs/0906.2366)
-- Boundary entropy: [Affleck & Ludwig, Phys. Rev. Lett. 67, 161 (1991)](https://doi.org/10.1103/PhysRevLett.67.161)
+- `metadata.json`
+- `config.json`
+- `summary.json`
+- `run.json`
 
----
+Additional files depend on the runner.
 
-## License
+## Current limitations
 
-MIT
+1. the backend still uses the current quimb `TNOptimizer` path
+   - it is not yet a full environment-based MERA sweep implementation
+
+2. optimization stability may still be limited by backend/runtime issues
+   - the conservative thread caps reduce risk but do not guarantee full stability
+
+3. the Spectral Dimension runner is synthetic
+   - it validates the fitting pipeline, not a physical MERA-derived diffusion object
+
+4. the Isometric Gluing runner is diagnostic
+   - it checks density-matrix and entropy consistency, not full gluing theory
+
+## Recommended workflow
+
+1. run a tiny smoke test for each runner
+2. inspect whether the run directory and artifacts are correct
+3. only then increase `chi`, restarts, or fit steps
+4. keep raw artifacts and summaries together per run
+5. do analysis from written outputs rather than reusing mutable in-memory objects
+
+## Notes on paper alignment
+
+The code layout now mirrors the paper-level separation between reusable MERA machinery and experiment orchestration:
+
+- backend primitives in `shared/mera_backend.py`
+- runner orchestration in the top-level scripts
+
+The backend is still an implementation convenience layer around the current optimization path. A future upgrade could replace that backend with a more explicit environment / sweep implementation without forcing a runner rewrite.
+
+## Troubleshooting
+
+### Import errors for `shared`
+
+Run scripts from the repo root, not from a different working directory.
+
+### `entanglement_utils` missing
+
+The backend falls back to local reduced-density and entropy helpers when possible.
+
+### MERA optimization crashes or hangs
+
+Start with:
+
+- very small `L`
+- small `chi`
+- `restarts-per-chi 1`
+- small `fit-steps`
+
+The backend already sets conservative thread defaults, but some stacks can still be fragile.
+
+### Results look inconsistent
+
+Check the raw artifact files first:
+
+- raw CSV files
+- failure logs
+- summary JSON
+
+Do not trust only terminal output.
+
+## Next refactor target
+
+The next major improvement would be replacing the current black-box optimizer path in `shared/mera_backend.py` with a more explicit MERA optimization loop built around reusable tensor/environment update primitives.

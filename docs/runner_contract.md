@@ -20,11 +20,11 @@ This is a contract for runner behavior, input/output structure, and saved artifa
 
 This contract applies to the following runner scripts:
 
-- `run_spectral_dimension.py`
-- `run_capacity_plateau.py`
-- `run_isometric_gluing.py`
-- `run_physical_convergence.py`
-- `run_xxz_boundary.py`
+- `Spectral_Dimension_Runner.py`
+- `Capacity_Plateau_Runner.py`
+- `Isometric_Gluing_Runner.py`
+- `physical_convergence_runner.py`
+- `xxz_boundary_fits.py`
 
 ---
 
