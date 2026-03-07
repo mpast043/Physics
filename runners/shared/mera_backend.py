@@ -265,6 +265,15 @@ def build_local_terms(
     return pair_terms, single_terms
 
 
+def _site_to_int(x: Any) -> int:
+    try:
+        return int(x)
+    except Exception:
+        if hasattr(x, "item"):
+            return int(x.item())
+        raise
+
+
 def optimize_mera_for_model(
     L: int,
     chi: int,
@@ -285,22 +294,22 @@ def optimize_mera_for_model(
     finally:
         np.random.set_state(rng_state)
 
-    try:
-        import cotengra as ctg
-
-        contract_opt = ctg.ReusableHyperOptimizer(progbar=False, reconf_opts={})
-    except Exception:
-        contract_opt = "auto-hq"
-
-    site_tags = {site: mera.site_tag(site) for site in range(L)}
+    # Keep the smoke-test path simple and stable first.
+    contract_opt: Any = "auto-hq"
 
     def norm_fn(m):
         return m.isometrize(method="exp")
 
     def local_expectation(m, where: Tuple[int, ...], operator: np.ndarray, optimize: Any) -> Any:
-        tags = [site_tags[site] for site in where]
+        sites = tuple(_site_to_int(site) for site in where)
+        tags = tuple(m.site_tag(site) for site in sites)
         local_tn = m.select(tags, which="any")
-        gated = local_tn.gate(operator, where)
+
+        if len(sites) == 1:
+            gated = local_tn.gate(operator, sites[0])
+        else:
+            gated = local_tn.gate(operator, sites)
+
         expectation_tn = gated & local_tn.H
         return expectation_tn.contract(all, optimize=optimize)
 
@@ -335,7 +344,9 @@ def optimize_mera_for_model(
 
     with threadpool_limits(limits=1):
         mera_opt = tnopt.optimize(steps)
-        final_energy = float(np.real(loss_fn(mera_opt, pair_terms, single_terms, optimize=contract_opt)))
+        final_energy = float(
+            np.real(loss_fn(mera_opt, pair_terms, single_terms, optimize=contract_opt))
+        )
 
     return mera_opt, final_energy
 
@@ -367,12 +378,6 @@ def optimize_mera_for_fidelity(
     h: float = 1.0,
     A_size: int | None = None,
 ) -> MERAOptimizationResult:
-    """
-    Compatibility wrapper for runners that expect:
-      optimize_mera_for_fidelity(...)
-    returning:
-      entropy, fidelity, final_energy, converged
-    """
     if A_size is None:
         A_size = L // 2
 

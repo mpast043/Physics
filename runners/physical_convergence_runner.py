@@ -279,7 +279,7 @@ def build_config_from_args(args: argparse.Namespace) -> Config:
 def main() -> int:
     ap = argparse.ArgumentParser(description="Physical convergence data runner")
     ap.add_argument("--L", type=int, required=True)
-    ap.add_argument("--A_size", type=int, required=True)
+    ap.add_argument("--A_size", "--A-size", type=int, required=True)
     ap.add_argument(
         "--model",
         choices=["ising_open", "heisenberg_open", "ising_cyclic", "heisenberg_cyclic"],
@@ -287,9 +287,9 @@ def main() -> int:
     )
     ap.add_argument("--j", type=float, default=1.0)
     ap.add_argument("--h", type=float, default=1.0)
-    ap.add_argument("--chi_sweep", type=str, default="8,16,32,64")
-    ap.add_argument("--restarts_per_chi", type=int, default=2)
-    ap.add_argument("--fit_steps", type=int, default=100)
+    ap.add_argument("--chi_sweep", "--chi-sweep", type=str, default="8,16,32,64")
+    ap.add_argument("--restarts_per_chi", "--restarts-per-chi", type=int, default=2)
+    ap.add_argument("--fit_steps", "--fit-steps", type=int, default=100)
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--output", type=Path, required=True)
 

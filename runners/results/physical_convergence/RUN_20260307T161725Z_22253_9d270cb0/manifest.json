@@ -1,0 +1,39 @@
+{
+  "run_id": "RUN_20260307T161725Z_22253_9d270cb0",
+  "environment": {
+    "timestamp_utc": "2026-03-07T16:17:25.787121+00:00",
+    "python_version": "3.12.1 (main, Nov 27 2025, 10:47:52) [GCC 13.3.0]",
+    "platform": "Linux-6.8.0-1044-azure-x86_64-with-glibc2.39",
+    "hostname": "codespaces-7d734f",
+    "cwd": "/workspaces/Physics/runners",
+    "argv": [
+      "physical_convergence_runner.py",
+      "--L",
+      "8",
+      "--A-size",
+      "4",
+      "--model",
+      "ising_open",
+      "--chi-sweep",
+      "2,4",
+      "--restarts-per-chi",
+      "1",
+      "--fit-steps",
+      "5",
+      "--seed",
+      "42",
+      "--output",
+      "./results/physical_convergence"
+    ],
+    "pid": 22253
+  },
+  "artifacts": [
+    "config.json",
+    "ed_reference.json",
+    "summary.json",
+    "manifest.json",
+    "raw_results.csv",
+    "best_per_chi.csv",
+    "failures.json"
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "loglinear": {
+    "ok": true,
+    "a": -0.4593834710439902,
+    "b": 0.864140808874189,
+    "rss": 3.0814879110195774e-31,
+    "aic": -52.64833659297699,
+    "bic": -55.2620422318571
+  },
+  "saturating": {
+    "ok": false,
+    "S_inf": null,
+    "c": null,
+    "alpha": null,
+    "rss": null,
+    "aic": null,
+    "bic": null
+  },
+  "delta_aic": null,
+  "delta_bic": null
+}

@@ -215,9 +215,9 @@ def fit_sat(chis: np.ndarray, y: np.ndarray) -> dict[str, Any]:
 
 def parse_args() -> RunnerConfig:
     parser = argparse.ArgumentParser(description="P2 Capacity Plateau Scan (Real MERA)")
-    parser.add_argument("--chi_sweep", default="2,4,8,16,32")
+    parser.add_argument("--chi_sweep", "--chi-sweep", default="2,4,8,16,32")
     parser.add_argument("--L", type=int, default=8)
-    parser.add_argument("--A_size", type=int, default=4)
+    parser.add_argument("--A_size", "--A-size", dest="A_size", type=int, default=4)
     parser.add_argument(
         "--model",
         default="ising_cyclic",
@@ -228,7 +228,7 @@ def parse_args() -> RunnerConfig:
             "heisenberg_cyclic",
         ],
     )
-    parser.add_argument("--fit_steps", type=int, default=80)
+    parser.add_argument("--fit_steps", "--fit-steps", type=int, default=80)    
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--output", required=True)
     parser.add_argument(

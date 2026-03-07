@@ -334,7 +334,7 @@ def write_out(res: Dict[str, Any], out_dir: Path) -> None:
 def main() -> None:
     p = argparse.ArgumentParser(description="P3 Isometric Gluing Diagnostics")
     p.add_argument("--L", type=int, default=8)
-    p.add_argument("--A_size", type=int, default=4)
+    p.add_argument("--A_size", "--A-size", type=int, default=4)
     p.add_argument("--model", default="heisenberg_open")
     p.add_argument("--output", required=True)
     a = p.parse_args()
