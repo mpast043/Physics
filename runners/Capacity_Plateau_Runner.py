@@ -1,19 +1,30 @@
 #!/usr/bin/env python3
 """
-Capacity Plateau Scan Runner (v3 - Real MERA)
+Capacity Plateau Scan Runner (v3.2 - Real MERA, Unique Run Outputs)
 
 Collects MERA entropy, fidelity, and energy data across bond dimension chi,
 with exact diagonalization comparison for small systems.
 
-Outputs:
+Default behavior:
+- --output is treated as a base directory
+- each run creates a unique subdirectory under --output
+
+Example:
+  python3 Capacity_Plateau_Runner.py --L 8 --A_size 4 \
+    --model ising_cyclic --chi_sweep 2,4,8,16 --seed 42 \
+    --output results/capacity_plateau
+
+This will create something like:
+  results/capacity_plateau/RUN_20260307T181530Z_a1b2c3d4/
+
+Outputs inside that run directory:
   metadata.json
   raw.csv
   fits.json
   summary.json
 
-Usage:
-  python3 Capacity_Plateau_Runner_updated.py --L 8 --A_size 4 \
-    --model ising_cyclic --chi_sweep 2,4,8,16 --seed 42 --output <DIR>
+Optional:
+- Use --overwrite to write directly into the exact --output directory instead.
 """
 
 from __future__ import annotations
@@ -80,7 +91,7 @@ def utc_now_iso() -> str:
 def run_id() -> str:
     timestamp = utc_now().strftime("%Y%m%dT%H%M%SZ")
     random_suffix = os.urandom(4).hex()
-    return f"{timestamp}_{random_suffix}"
+    return f"RUN_{timestamp}_{random_suffix}"
 
 
 def parse_chi_sweep(raw: str) -> tuple[int, ...]:
@@ -228,13 +239,17 @@ def parse_args() -> RunnerConfig:
             "heisenberg_cyclic",
         ],
     )
-    parser.add_argument("--fit_steps", "--fit-steps", type=int, default=80)    
+    parser.add_argument("--fit_steps", "--fit-steps", type=int, default=80)
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--output", required=True)
+    parser.add_argument(
+        "--output",
+        required=True,
+        help="Base output directory. A unique run subdirectory will be created here unless --overwrite is used.",
+    )
     parser.add_argument(
         "--overwrite",
         action="store_true",
-        help="Allow writing into a non-empty output directory.",
+        help="Write directly into the exact --output directory, allowing replacement behavior.",
     )
 
     args = parser.parse_args()
@@ -271,6 +286,26 @@ def ensure_output_dir(output_dir: Path, overwrite: bool) -> None:
             )
     else:
         output_dir.mkdir(parents=True, exist_ok=False)
+
+
+def prepare_run_output_dir(base_output: Path, overwrite: bool) -> tuple[Path, str]:
+    """
+    Default behavior:
+      - create unique run directory inside base_output
+
+    Overwrite behavior:
+      - write directly into base_output
+    """
+    run_name = run_id()
+
+    if overwrite:
+        ensure_output_dir(base_output, overwrite=True)
+        return base_output, run_name
+
+    base_output.mkdir(parents=True, exist_ok=True)
+    run_dir = base_output / run_name
+    run_dir.mkdir(parents=False, exist_ok=False)
+    return run_dir, run_name
 
 
 def atomic_write_text(path: Path, text: str) -> None:
@@ -400,7 +435,7 @@ def build_fit_results(rows: list[MeasurementRow], ed_result: Any | None) -> tupl
     return fits, derived_checks
 
 
-def build_result_payload(cfg: RunnerConfig) -> dict[str, Any]:
+def build_result_payload(cfg: RunnerConfig, resolved_output_dir: Path, run_name: str) -> dict[str, Any]:
     params = build_model_params(cfg.model)
     ed_result = compute_ed_reference(cfg, params)
     rows = collect_measurements(cfg, params, ed_result)
@@ -408,7 +443,7 @@ def build_result_payload(cfg: RunnerConfig) -> dict[str, Any]:
 
     return {
         "metadata": {
-            "run_id": run_id(),
+            "run_id": run_name,
             "timestamp_utc": utc_now_iso(),
             "config": {
                 "chi_sweep": list(cfg.chi_sweep),
@@ -417,10 +452,12 @@ def build_result_payload(cfg: RunnerConfig) -> dict[str, Any]:
                 "model": cfg.model,
                 "fit_steps": cfg.fit_steps,
                 "seed": cfg.seed,
-                "output": str(cfg.output),
+                "output_base": str(cfg.output),
+                "resolved_output_dir": str(resolved_output_dir),
+                "overwrite": cfg.overwrite,
             },
             "test": "Capacity Plateau",
-            "version": "3.1.0",
+            "version": "3.2.0",
         },
         "measurements": [asdict(row) for row in rows],
         "fits": fits,
@@ -436,9 +473,8 @@ def build_result_payload(cfg: RunnerConfig) -> dict[str, Any]:
     }
 
 
-def write_out(res: dict[str, Any], out_dir: Path, overwrite: bool) -> None:
+def write_out(res: dict[str, Any], out_dir: Path) -> None:
     out_dir = Path(out_dir)
-    ensure_output_dir(out_dir, overwrite=overwrite)
 
     metadata_path = out_dir / "metadata.json"
     raw_path = out_dir / "raw.csv"
@@ -488,11 +524,15 @@ def write_out(res: dict[str, Any], out_dir: Path, overwrite: bool) -> None:
 def main() -> None:
     cfg = parse_args()
 
-    print("[P2] Capacity Plateau Scan v3.1")
+    print("[P2] Capacity Plateau Scan v3.2")
     print(f"[P2] L={cfg.L}, A_size={cfg.A_size}, model={cfg.model}")
 
-    res = build_result_payload(cfg)
-    write_out(res, cfg.output, overwrite=cfg.overwrite)
+    resolved_output_dir, run_name = prepare_run_output_dir(cfg.output, cfg.overwrite)
+    print(f"[P2] Run ID: {run_name}")
+    print(f"[P2] Output directory: {resolved_output_dir}")
+
+    res = build_result_payload(cfg, resolved_output_dir, run_name)
+    write_out(res, resolved_output_dir)
 
 
 if __name__ == "__main__":
