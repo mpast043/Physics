@@ -1,0 +1,116 @@
+{
+  "metadata": {
+    "run_id": "RUN_20260308T162334Z_fc224c62",
+    "timestamp_utc": "2026-03-08T16:35:19+00:00",
+    "config": {
+      "chi_sweep": [
+        2,
+        4,
+        8,
+        16
+      ],
+      "L": 16,
+      "A_size": 4,
+      "model": "heisenberg_open",
+      "fit_steps": 120,
+      "restarts_per_chi": 4,
+      "seed": 42,
+      "output_base": "results/capacity_plateau",
+      "resolved_output_dir": "results/capacity_plateau/RUN_20260308T162334Z_fc224c62",
+      "overwrite": false
+    },
+    "test": "Capacity Plateau",
+    "version": "3.4.1"
+  },
+  "ed_reference": null,
+  "best_per_chi": [
+    {
+      "chi": 2,
+      "restart_idx": 1,
+      "seed": 21042,
+      "entropy": 0.32668783331386975,
+      "fidelity": NaN,
+      "energy": -6.655256291443029,
+      "converged": true,
+      "elapsed_sec": 12.140917995000564,
+      "ed_entropy": null,
+      "entropy_error": null,
+      "error_message": null
+    },
+    {
+      "chi": 4,
+      "restart_idx": 2,
+      "seed": 42042,
+      "entropy": 0.40400491348802736,
+      "fidelity": NaN,
+      "energy": -6.808264793216173,
+      "converged": true,
+      "elapsed_sec": 13.013850097000613,
+      "ed_entropy": null,
+      "entropy_error": null,
+      "error_message": null
+    },
+    {
+      "chi": 8,
+      "restart_idx": 2,
+      "seed": 82042,
+      "entropy": 0.37395231754546965,
+      "fidelity": NaN,
+      "energy": -6.824018238959315,
+      "converged": true,
+      "elapsed_sec": 17.10687408800004,
+      "ed_entropy": null,
+      "entropy_error": null,
+      "error_message": null
+    },
+    {
+      "chi": 16,
+      "restart_idx": 2,
+      "seed": 162042,
+      "entropy": 0.44169912933029454,
+      "fidelity": NaN,
+      "energy": -6.838798294545603,
+      "converged": true,
+      "elapsed_sec": 129.433208243001,
+      "ed_entropy": null,
+      "entropy_error": null,
+      "error_message": null
+    }
+  ],
+  "fits": {
+    "loglinear": {
+      "ok": true,
+      "a": 0.3078407253927361,
+      "b": 0.04544219480951589,
+      "rss": 0.002127615157532292,
+      "aic": -26.156191728006895,
+      "bic": -27.383603005767114
+    },
+    "saturating": {
+      "ok": true,
+      "S_inf": 0.5226180683834152,
+      "c": 0.23721535538686378,
+      "alpha": 0.35015639061616105,
+      "rss": 0.0020912807783560637,
+      "aic": -24.225091796830892,
+      "bic": -26.06620871347122
+    },
+    "delta_aic": 1.9310999311760035,
+    "delta_bic": 1.3173942922958943
+  },
+  "derived_checks": {
+    "sat_preferred": false,
+    "monotonic_entropy": false,
+    "high_fidelity": null
+  },
+  "validation": {
+    "branch_policy": "baseline",
+    "energy_sanity": {
+      "passed": false,
+      "reason": "no_ed_reference",
+      "tolerance": 1e-06,
+      "invalid_points": []
+    },
+    "framework_eligible": false
+  }
+}

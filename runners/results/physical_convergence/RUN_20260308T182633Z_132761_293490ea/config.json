@@ -1,0 +1,19 @@
+{
+  "run_id": "RUN_20260308T182633Z_132761_293490ea",
+  "config": {
+    "L": 16,
+    "A_size": 4,
+    "model": "heisenberg_open",
+    "chi_sweep": [
+      8,
+      16
+    ],
+    "restarts_per_chi": 12,
+    "fit_steps": 120,
+    "seed": 42,
+    "output_dir": "results/physical_convergence",
+    "resolved_output_dir": "results/physical_convergence/RUN_20260308T182633Z_132761_293490ea",
+    "j": 1.0,
+    "h": 1.0
+  }
+}

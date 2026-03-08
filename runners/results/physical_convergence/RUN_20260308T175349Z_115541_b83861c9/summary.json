@@ -1,0 +1,76 @@
+{
+  "run_id": "RUN_20260308T175349Z_115541_b83861c9",
+  "model": "heisenberg_open",
+  "L": 8,
+  "A_size": 4,
+  "chi_sweep": [
+    2,
+    4,
+    8,
+    16
+  ],
+  "ed_energy": -3.3749325986878866,
+  "ed_entropy": 0.4569757731133814,
+  "num_total_restarts": 16,
+  "num_failed_restarts": 0,
+  "num_successful_restarts": 16,
+  "best_per_chi": [
+    {
+      "chi": 2,
+      "restart_idx": 1,
+      "seed": 21042,
+      "converged": true,
+      "fidelity": 0.9449175237077937,
+      "entropy": 0.4829780165297899,
+      "final_energy": -3.2645902186285465,
+      "elapsed_sec": 4.058052743999724,
+      "error_message": null
+    },
+    {
+      "chi": 4,
+      "restart_idx": 0,
+      "seed": 40042,
+      "converged": true,
+      "fidelity": 0.999248209731147,
+      "entropy": 0.4505266255926871,
+      "final_energy": -3.3730153166271166,
+      "elapsed_sec": 4.781798236001123,
+      "error_message": null
+    },
+    {
+      "chi": 8,
+      "restart_idx": 1,
+      "seed": 81042,
+      "converged": true,
+      "fidelity": 0.9999609292204397,
+      "entropy": 0.45693132542794807,
+      "final_energy": -3.374790324800056,
+      "elapsed_sec": 5.220433823000349,
+      "error_message": null
+    },
+    {
+      "chi": 16,
+      "restart_idx": 3,
+      "seed": 163042,
+      "converged": true,
+      "fidelity": 0.9999999983061723,
+      "entropy": 0.4569728443082037,
+      "final_energy": -3.374932597727644,
+      "elapsed_sec": 4.155609532999733,
+      "error_message": null
+    }
+  ],
+  "validation": {
+    "branch_policy": "baseline",
+    "energy_sanity": {
+      "passed": true,
+      "tolerance": 1e-06,
+      "invalid_points": []
+    },
+    "framework_eligible": true
+  },
+  "timing": {
+    "ed_elapsed_sec": 1.5716682329984906,
+    "total_elapsed_sec": 78.78656262299955
+  }
+}

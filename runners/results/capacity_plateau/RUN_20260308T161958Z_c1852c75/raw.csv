@@ -1,0 +1,17 @@
+chi,restart_idx,seed,entropy,fidelity,energy,converged,elapsed_sec,ed_entropy,entropy_error,error_message
+2,0,20042,0.0,nan,0.0,False,3.6849938509985805,,,KeyError: 0
+2,1,21042,0.0,nan,0.0,False,0.028214499001478544,,,KeyError: 0
+2,2,22042,0.0,nan,0.0,False,0.035790257999906316,,,KeyError: 0
+2,3,23042,0.0,nan,0.0,False,0.029134381999028847,,,KeyError: 0
+4,0,40042,0.0,nan,0.0,False,0.03167100100108655,,,KeyError: 0
+4,1,41042,0.0,nan,0.0,False,0.036049925998668186,,,KeyError: 0
+4,2,42042,0.0,nan,0.0,False,0.03102318300079787,,,KeyError: 0
+4,3,43042,0.0,nan,0.0,False,0.03540390400121396,,,KeyError: 0
+8,0,80042,0.0,nan,0.0,False,0.04295309400004044,,,KeyError: 0
+8,1,81042,0.0,nan,0.0,False,0.029827763999492163,,,KeyError: 0
+8,2,82042,0.0,nan,0.0,False,0.042181561000688816,,,KeyError: 0
+8,3,83042,0.0,nan,0.0,False,0.058009148999190074,,,KeyError: 0
+16,0,160042,0.0,nan,0.0,False,0.2834010540009331,,,KeyError: 0
+16,1,161042,0.0,nan,0.0,False,0.13867806399866822,,,KeyError: 0
+16,2,162042,0.0,nan,0.0,False,0.1443776539999817,,,KeyError: 0
+16,3,163042,0.0,nan,0.0,False,0.2043012850008381,,,KeyError: 0

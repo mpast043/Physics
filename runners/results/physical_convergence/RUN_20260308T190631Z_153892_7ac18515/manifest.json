@@ -1,0 +1,38 @@
+{
+  "run_id": "RUN_20260308T190631Z_153892_7ac18515",
+  "environment": {
+    "timestamp_utc": "2026-03-08T19:06:31.727697+00:00",
+    "python_version": "3.12.1 (main, Nov 27 2025, 10:47:52) [GCC 13.3.0]",
+    "platform": "Linux-6.8.0-1044-azure-x86_64-with-glibc2.39",
+    "hostname": "codespaces-7d734f",
+    "cwd": "/workspaces/Physics/runners",
+    "argv": [
+      "physical_convergence_runner.py",
+      "--L",
+      "16",
+      "--A_size",
+      "4",
+      "--model",
+      "heisenberg_open",
+      "--chi_sweep",
+      "8,16",
+      "--restarts_per_chi",
+      "16",
+      "--fit_steps",
+      "120",
+      "--output",
+      "results/physical_convergence"
+    ],
+    "pid": 153892,
+    "repo_root": "/workspaces/Physics"
+  },
+  "artifacts": [
+    "config.json",
+    "ed_reference.json",
+    "summary.json",
+    "manifest.json",
+    "raw_results.csv",
+    "best_per_chi.csv",
+    "failures.json"
+  ]
+}

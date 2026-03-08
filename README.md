@@ -229,7 +229,7 @@ Optional / backend-dependent:
 A minimal install might look like:
 
 ```bash
-pip install numpy scipy quimb threadpoolctl cotengra torch
+pip install numpy scipy quimb threadpoolctl cotengra torch nevergrad cmaes optuna
 ```
 
 If you already have a working environment for the original runners, use that first.

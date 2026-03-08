@@ -294,7 +294,6 @@ def optimize_mera_for_model(
     finally:
         np.random.set_state(rng_state)
 
-    # Keep the smoke-test path simple and stable first.
     contract_opt: Any = "auto-hq"
 
     def norm_fn(m):
@@ -302,12 +301,15 @@ def optimize_mera_for_model(
 
     def local_expectation(m, where: Tuple[int, ...], operator: np.ndarray, optimize: Any) -> Any:
         sites = tuple(_site_to_int(site) for site in where)
-        tags = tuple(m.site_tag(site) for site in sites)
-        local_tn = m.select(tags, which="any")
 
         if len(sites) == 1:
+            # quimb docs: MERA.select(i) for one-site lightcone
+            local_tn = m.select(sites[0])
             gated = local_tn.gate(operator, sites[0])
         else:
+            # quimb docs: MERA.select((mera.site_tag(i), mera.site_tag(j)), which="any")
+            tags = tuple(m.site_tag(site) for site in sites)
+            local_tn = m.select(tags, which="any")
             gated = local_tn.gate(operator, sites)
 
         expectation_tn = gated & local_tn.H
@@ -370,7 +372,7 @@ def compute_entropy_from_mera(mera: Any, A_sites: Sequence[int]) -> float:
 def optimize_mera_for_fidelity(
     L: int,
     chi: int,
-    ed_psi: np.ndarray,
+    ed_psi: np.ndarray | None,
     model: str,
     steps: int,
     seed: int,
@@ -393,8 +395,12 @@ def optimize_mera_for_fidelity(
         )
 
         entropy_value = compute_entropy_from_mera(mera_opt, subsystem_sites(A_size))
-        psi_mera = normalize_state(mera_opt.to_dense().reshape(-1))
-        fid = fidelity(psi_mera, ed_psi)
+
+        if ed_psi is None:
+            fid = float("nan")
+        else:
+            psi_mera = normalize_state(mera_opt.to_dense().reshape(-1))
+            fid = fidelity(psi_mera, ed_psi)
 
         return MERAOptimizationResult(
             entropy=float(entropy_value),
@@ -408,7 +414,7 @@ def optimize_mera_for_fidelity(
     except Exception as exc:
         return MERAOptimizationResult(
             entropy=0.0,
-            fidelity=0.0,
+            fidelity=float("nan"),
             final_energy=0.0,
             converged=False,
             mera_state=None,

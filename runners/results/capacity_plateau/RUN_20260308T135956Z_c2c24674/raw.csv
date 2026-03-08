@@ -1,4 +1,0 @@
-chi,entropy,fidelity,energy,converged,ed_entropy,entropy_error,error_message
-2,0.0,0.0,0.0,False,,,ValueError: State vector has invalid norm
-4,0.0,0.0,0.0,False,,,ValueError: State vector has invalid norm
-8,0.0,0.0,0.0,False,,,ValueError: State vector has invalid norm

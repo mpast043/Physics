@@ -1,0 +1,116 @@
+{
+  "metadata": {
+    "run_id": "RUN_20260308T161102Z_cedd068f",
+    "timestamp_utc": "2026-03-08T16:11:02+00:00",
+    "config": {
+      "chi_sweep": [
+        2,
+        4,
+        8,
+        16
+      ],
+      "L": 16,
+      "A_size": 4,
+      "model": "heisenberg_open",
+      "fit_steps": 120,
+      "restarts_per_chi": 4,
+      "seed": 42,
+      "output_base": "results/capacity_plateau",
+      "resolved_output_dir": "results/capacity_plateau/RUN_20260308T161102Z_cedd068f",
+      "overwrite": false
+    },
+    "test": "Capacity Plateau",
+    "version": "3.4.1"
+  },
+  "ed_reference": null,
+  "best_per_chi": [
+    {
+      "chi": 2,
+      "restart_idx": 0,
+      "seed": 20042,
+      "entropy": 0.0,
+      "fidelity": 0.0,
+      "energy": 0.0,
+      "converged": false,
+      "elapsed_sec": 1.9485998564050533e-05,
+      "ed_entropy": null,
+      "entropy_error": null,
+      "error_message": "NameError: name 'optimize_mera_for_model' is not defined"
+    },
+    {
+      "chi": 4,
+      "restart_idx": 0,
+      "seed": 40042,
+      "entropy": 0.0,
+      "fidelity": 0.0,
+      "energy": 0.0,
+      "converged": false,
+      "elapsed_sec": 9.387000318383798e-06,
+      "ed_entropy": null,
+      "entropy_error": null,
+      "error_message": "NameError: name 'optimize_mera_for_model' is not defined"
+    },
+    {
+      "chi": 8,
+      "restart_idx": 0,
+      "seed": 80042,
+      "entropy": 0.0,
+      "fidelity": 0.0,
+      "energy": 0.0,
+      "converged": false,
+      "elapsed_sec": 6.862999725854024e-06,
+      "ed_entropy": null,
+      "entropy_error": null,
+      "error_message": "NameError: name 'optimize_mera_for_model' is not defined"
+    },
+    {
+      "chi": 16,
+      "restart_idx": 0,
+      "seed": 160042,
+      "entropy": 0.0,
+      "fidelity": 0.0,
+      "energy": 0.0,
+      "converged": false,
+      "elapsed_sec": 7.704000381636433e-06,
+      "ed_entropy": null,
+      "entropy_error": null,
+      "error_message": "NameError: name 'optimize_mera_for_model' is not defined"
+    }
+  ],
+  "fits": {
+    "loglinear": {
+      "ok": true,
+      "a": 0.0,
+      "b": 0.0,
+      "rss": 0.0,
+      "aic": -112.06926190819375,
+      "bic": -113.29667318595398
+    },
+    "saturating": {
+      "ok": true,
+      "S_inf": 0.05,
+      "c": 0.05000000000000001,
+      "alpha": 6.642483565348816e-16,
+      "rss": 1.343336136210097e-32,
+      "aic": -110.06926190819375,
+      "bic": -111.91037882483408
+    },
+    "delta_aic": 2.0,
+    "delta_bic": 1.3862943611198943
+  },
+  "derived_checks": {
+    "sat_preferred": false,
+    "monotonic_entropy": true,
+    "high_fidelity": null
+  },
+  "validation": {
+    "branch_policy": "baseline",
+    "energy_sanity": {
+      "passed": false,
+      "reason": "no_ed_reference",
+      "tolerance": 1e-06,
+      "invalid_points": []
+    },
+    "framework_eligible": false
+  }
+}

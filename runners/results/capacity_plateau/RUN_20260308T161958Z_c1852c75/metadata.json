@@ -1,0 +1,23 @@
+{
+  "run_id": "RUN_20260308T161958Z_c1852c75",
+  "timestamp_utc": "2026-03-08T16:20:03+00:00",
+  "config": {
+    "chi_sweep": [
+      2,
+      4,
+      8,
+      16
+    ],
+    "L": 16,
+    "A_size": 4,
+    "model": "heisenberg_open",
+    "fit_steps": 120,
+    "restarts_per_chi": 4,
+    "seed": 42,
+    "output_base": "results/capacity_plateau",
+    "resolved_output_dir": "results/capacity_plateau/RUN_20260308T161958Z_c1852c75",
+    "overwrite": false
+  },
+  "test": "Capacity Plateau",
+  "version": "3.4.1"
+}
