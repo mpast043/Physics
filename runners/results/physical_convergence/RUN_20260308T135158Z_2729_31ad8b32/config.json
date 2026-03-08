@@ -1,0 +1,18 @@
+{
+  "run_id": "RUN_20260308T135158Z_2729_31ad8b32",
+  "config": {
+    "L": 8,
+    "A_size": 4,
+    "model": "ising_cyclic",
+    "chi_sweep": [
+      2,
+      4
+    ],
+    "restarts_per_chi": 2,
+    "fit_steps": 20,
+    "seed": 42,
+    "output_dir": "results/physical_convergence",
+    "j": 1.0,
+    "h": 1.0
+  }
+}

@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
 """
-Physical Convergence Runner v3 (data collection only)
+Physical Convergence Runner
 
 Purpose:
 - Compute ED reference data for Ising / Heisenberg models
 - Run MERA optimization across chi values and restarts
-- Collect raw per-restart data with strong reproducibility safeguards
-- Save data artifacts only (no falsifiers, verdicts, or acceptance criteria)
+- Collect raw per-restart data with reproducibility safeguards
+- Save data artifacts only
+- Add validation metadata so unphysical branches are clearly marked
 
 Usage:
-  python3 physical_convergence_runner_updated.py --L 8 --A_size 4 \
-    --model ising_open --j 1.0 --h 1.0 --chi_sweep 2,4,8,16 \
-    --restarts_per_chi 3 --fit_steps 100 --seed 42 --output <RUN_DIR>
+  python3 physical_convergence_runner.py --L 8 --A_size 4 \
+    --model heisenberg_open --j 1.0 --h 1.0 --chi_sweep 2,4,8 \
+    --restarts_per_chi 2 --fit_steps 40 --seed 42 \
+    --output ./results/physical_convergence
 """
 
 from __future__ import annotations
@@ -30,18 +32,21 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
-PROJECT_ROOT = Path(__file__).resolve().parent
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
+# ---------------------------------------------------------------------------
+# Import path setup
+# ---------------------------------------------------------------------------
+# Assumes this file lives in: <repo_root>/runners/physical_convergence_runner.py
+# and shared backend lives in: <repo_root>/shared/mera_backend.py
+REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 from shared.mera_backend import exact_diagonalization, optimize_mera_for_fidelity  # noqa: E402
 
 
-# ============================================================
-# Types and Configuration
-# ============================================================
-
-
+# ---------------------------------------------------------------------------
+# Types and configuration
+# ---------------------------------------------------------------------------
 @dataclass(frozen=True)
 class Config:
     L: int
@@ -91,17 +96,15 @@ class OptimizationResult:
     error_message: Optional[str] = None
 
 
-# ============================================================
+# ---------------------------------------------------------------------------
 # Utilities
-# ============================================================
-
-
+# ---------------------------------------------------------------------------
 def utc_now() -> dt.datetime:
     return dt.datetime.now(dt.timezone.utc)
 
 
 def parse_chi_sweep(text: str) -> List[int]:
-    values = []
+    values: List[int] = []
     for raw in text.split(","):
         raw = raw.strip()
         if raw:
@@ -115,6 +118,7 @@ def make_run_id() -> str:
 
 def create_unique_run_dir(base_output: Path) -> Tuple[str, Path]:
     base_output.mkdir(parents=True, exist_ok=True)
+
     for _ in range(16):
         run_id = make_run_id()
         run_dir = base_output / run_id
@@ -123,12 +127,13 @@ def create_unique_run_dir(base_output: Path) -> Tuple[str, Path]:
             return run_id, run_dir
         except FileExistsError:
             continue
+
     raise RuntimeError("Could not create a unique run directory after multiple attempts")
 
 
 def json_default(obj: Any) -> Any:
     try:
-        import numpy as np
+        import numpy as np  # local import to avoid hard dependency here
     except Exception:
         np = None
 
@@ -172,6 +177,7 @@ def snapshot_runtime_environment() -> Dict[str, Any]:
         "cwd": str(Path.cwd()),
         "argv": sys.argv,
         "pid": os.getpid(),
+        "repo_root": str(REPO_ROOT),
     }
 
 
@@ -180,6 +186,7 @@ def best_result_for_chi(results: Sequence[OptimizationResult]) -> OptimizationRe
         raise ValueError("No results available for chi")
 
     def key(r: OptimizationResult) -> Tuple[int, float, float]:
+        # Prefer converged runs, then higher fidelity, then lower energy.
         return (
             1 if r.converged else 0,
             float(r.fidelity),
@@ -189,16 +196,46 @@ def best_result_for_chi(results: Sequence[OptimizationResult]) -> OptimizationRe
     return max(results, key=key)
 
 
-# ============================================================
+def branch_policy_for_model(model: str) -> str:
+    # Current workflow choice:
+    # - heisenberg_open is baseline
+    # - everything else is investigation until validated
+    return "baseline" if model == "heisenberg_open" else "investigation"
+
+
+def energy_sanity_status(
+    best_results: Sequence[OptimizationResult],
+    ed_energy: float,
+    tolerance: float = 1e-6,
+) -> Dict[str, Any]:
+    invalid_points: List[Dict[str, Any]] = []
+
+    for r in best_results:
+        if r.converged and (r.final_energy < ed_energy - tolerance):
+            invalid_points.append(
+                {
+                    "chi": r.chi,
+                    "final_energy": float(r.final_energy),
+                    "ed_energy": float(ed_energy),
+                    "delta": float(r.final_energy - ed_energy),
+                }
+            )
+
+    return {
+        "passed": len(invalid_points) == 0,
+        "tolerance": float(tolerance),
+        "invalid_points": invalid_points,
+    }
+
+
+# ---------------------------------------------------------------------------
 # MERA sweep using shared backend
-# ============================================================
-
-
+# ---------------------------------------------------------------------------
 def run_mera_with_restarts(
     L: int,
     A_size: int,
     chi: int,
-    ed_psi,
+    ed_psi: Any,
     model: str,
     steps: int,
     restarts: int,
@@ -238,14 +275,14 @@ def run_mera_with_restarts(
 
         results.append(
             OptimizationResult(
-                chi=chi,
-                restart_idx=restart,
+                chi=int(chi),
+                restart_idx=int(restart),
                 fidelity=float(opt_result.fidelity),
                 entropy=float(opt_result.entropy),
                 final_energy=float(opt_result.final_energy),
-                seed=seed,
+                seed=int(seed),
                 converged=bool(opt_result.converged),
-                num_steps=steps,
+                num_steps=int(steps),
                 elapsed_sec=float(elapsed),
                 error_message=opt_result.error_message,
             )
@@ -254,11 +291,9 @@ def run_mera_with_restarts(
     return results
 
 
-# ============================================================
-# Main Runner
-# ============================================================
-
-
+# ---------------------------------------------------------------------------
+# Main runner
+# ---------------------------------------------------------------------------
 def build_config_from_args(args: argparse.Namespace) -> Config:
     config = Config(
         L=args.L,
@@ -279,7 +314,7 @@ def build_config_from_args(args: argparse.Namespace) -> Config:
 def main() -> int:
     ap = argparse.ArgumentParser(description="Physical convergence data runner")
     ap.add_argument("--L", type=int, required=True)
-    ap.add_argument("--A_size", "--A-size", type=int, required=True)
+    ap.add_argument("--A_size", "--A-size", dest="A_size", type=int, required=True)
     ap.add_argument(
         "--model",
         choices=["ising_open", "heisenberg_open", "ising_cyclic", "heisenberg_cyclic"],
@@ -287,9 +322,9 @@ def main() -> int:
     )
     ap.add_argument("--j", type=float, default=1.0)
     ap.add_argument("--h", type=float, default=1.0)
-    ap.add_argument("--chi_sweep", "--chi-sweep", type=str, default="8,16,32,64")
-    ap.add_argument("--restarts_per_chi", "--restarts-per-chi", type=int, default=2)
-    ap.add_argument("--fit_steps", "--fit-steps", type=int, default=100)
+    ap.add_argument("--chi_sweep", "--chi-sweep", dest="chi_sweep", type=str, default="8,16,32,64")
+    ap.add_argument("--restarts_per_chi", "--restarts-per-chi", dest="restarts_per_chi", type=int, default=2)
+    ap.add_argument("--fit_steps", "--fit-steps", dest="fit_steps", type=int, default=100)
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--output", type=Path, required=True)
 
@@ -313,6 +348,7 @@ def main() -> int:
 
     total_t0 = time.perf_counter()
 
+    # Phase 1: ED
     print("\n[Phase 1] Exact Diagonalization")
     ed_t0 = time.perf_counter()
     ed_result = exact_diagonalization(
@@ -324,8 +360,8 @@ def main() -> int:
     )
     ed_elapsed = time.perf_counter() - ed_t0
 
+    # Phase 2: MERA sweep
     print("\n[Phase 2] MERA Variational Optimization")
-
     all_results: List[OptimizationResult] = []
     best_results: List[OptimizationResult] = []
 
@@ -355,11 +391,24 @@ def main() -> int:
 
     total_elapsed = time.perf_counter() - total_t0
 
+    # Validation
+    policy = branch_policy_for_model(config.model)
+    energy_check = energy_sanity_status(
+        best_results=best_results,
+        ed_energy=float(ed_result.ground_state_energy),
+        tolerance=1e-6,
+    )
+    framework_eligible = bool(policy == "baseline" and energy_check["passed"])
+
     print(f"\n{'=' * 72}")
     print("RUN COMPLETE")
     print(f"TOTAL ELAPSED: {total_elapsed:.2f}s")
+    print(f"BRANCH POLICY: {policy}")
+    print(f"ENERGY SANITY PASSED: {energy_check['passed']}")
+    print(f"FRAMEWORK ELIGIBLE: {framework_eligible}")
     print(f"{'=' * 72}")
 
+    # Phase 3: save artifacts
     print(f"\n[Phase 3] Saving artifacts to {run_dir}")
 
     config_payload = {
@@ -373,6 +422,7 @@ def main() -> int:
             "fit_steps": config.fit_steps,
             "seed": config.seed,
             "output_dir": str(config.output_dir),
+            "resolved_output_dir": str(run_dir),
             "j": config.j,
             "h": config.h,
         },
@@ -415,6 +465,11 @@ def main() -> int:
             }
             for r in best_results
         ],
+        "validation": {
+            "branch_policy": policy,
+            "energy_sanity": energy_check,
+            "framework_eligible": framework_eligible,
+        },
         "timing": {
             "ed_elapsed_sec": float(ed_elapsed),
             "total_elapsed_sec": float(total_elapsed),

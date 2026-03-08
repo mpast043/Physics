@@ -1,0 +1,62 @@
+{
+  "metadata": {
+    "run_id": "20260308T135049Z_ef6b70e1",
+    "timestamp_utc": "2026-03-08T13:50:49.078973Z",
+    "test": "P1",
+    "runner": "spectral_dimension",
+    "version": "2.3.0"
+  },
+  "config": {
+    "seed": 42,
+    "true_ds": 1.5,
+    "noise_level": 0.02,
+    "steps": [
+      10,
+      20,
+      40,
+      80,
+      160
+    ],
+    "label": null
+  },
+  "summary": {
+    "d_s_estimated": 1.5151803453640837,
+    "slope": -0.7575901726820419,
+    "intercept": 0.023807934496504216,
+    "r_squared": 0.9983557662800724,
+    "n_points": 4,
+    "fit_start_index": 1
+  },
+  "measurements": [
+    {
+      "step": 10,
+      "return_prob": 0.1789116852215213,
+      "log_step": 2.302585092994046,
+      "log_return_prob": -1.7208629735433956
+    },
+    {
+      "step": 20,
+      "return_prob": 0.10353782772730917,
+      "log_step": 2.995732273553991,
+      "log_return_prob": -2.2678182477621807
+    },
+    {
+      "step": 40,
+      "return_prob": 0.06381531390509934,
+      "log_step": 3.6888794541139363,
+      "log_return_prob": -2.75176208757346
+    },
+    {
+      "step": 80,
+      "return_prob": 0.03808695568168815,
+      "log_step": 4.382026634673881,
+      "log_return_prob": -3.2678834260310285
+    },
+    {
+      "step": 160,
+      "return_prob": 0.021361121199425404,
+      "log_step": 5.075173815233827,
+      "log_return_prob": -3.8461827756579234
+    }
+  ]
+}

@@ -1,0 +1,54 @@
+{
+  "metadata": {
+    "run_id": "RUN_20260308T135916Z_5f20dc3a",
+    "timestamp_utc": "2026-03-08T13:59:41+00:00",
+    "config": {
+      "chi_sweep": [
+        2,
+        4,
+        8,
+        16
+      ],
+      "L": 8,
+      "A_size": 4,
+      "model": "ising_cyclic",
+      "fit_steps": 80,
+      "seed": 42,
+      "output_base": "results/capacity_plateau",
+      "resolved_output_dir": "results/capacity_plateau/RUN_20260308T135916Z_5f20dc3a",
+      "overwrite": false
+    },
+    "test": "Capacity Plateau",
+    "version": "3.2.0"
+  },
+  "ed_reference": {
+    "energy": -4.254541117570135,
+    "entropy": 0.17890713707831588
+  },
+  "fits": {
+    "loglinear": {
+      "ok": true,
+      "a": -0.18336571503346963,
+      "b": 0.32288294498047837,
+      "rss": 0.03820910719404223,
+      "aic": -14.603902978732883,
+      "bic": -15.831314256493101
+    },
+    "saturating": {
+      "ok": true,
+      "S_inf": 1.3420723612054812,
+      "c": 1.6640916931195924,
+      "alpha": 0.33681050674903124,
+      "rss": 0.034571663444735445,
+      "aic": -13.004061076670997,
+      "bic": -14.845177993311324
+    },
+    "delta_aic": 1.5998419020618861,
+    "delta_bic": 0.9861362631817769
+  },
+  "derived_checks": {
+    "sat_preferred": false,
+    "monotonic_entropy": false,
+    "high_fidelity": false
+  }
+}

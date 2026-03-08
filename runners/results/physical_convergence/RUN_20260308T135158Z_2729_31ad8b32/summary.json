@@ -1,0 +1,43 @@
+{
+  "run_id": "RUN_20260308T135158Z_2729_31ad8b32",
+  "model": "ising_cyclic",
+  "L": 8,
+  "A_size": 4,
+  "chi_sweep": [
+    2,
+    4
+  ],
+  "ed_energy": -4.254541117570145,
+  "ed_entropy": 0.1789071370783204,
+  "num_total_restarts": 4,
+  "num_failed_restarts": 0,
+  "num_successful_restarts": 4,
+  "best_per_chi": [
+    {
+      "chi": 2,
+      "restart_idx": 1,
+      "seed": 21042,
+      "converged": true,
+      "fidelity": 0.09668858051061423,
+      "entropy": 0.020858772942047753,
+      "final_energy": -10.095086840610328,
+      "elapsed_sec": 1.1775556239999787,
+      "error_message": null
+    },
+    {
+      "chi": 4,
+      "restart_idx": 1,
+      "seed": 41042,
+      "converged": true,
+      "fidelity": 0.08588910889662525,
+      "entropy": 0.021649766610775494,
+      "final_energy": -10.092175537657889,
+      "elapsed_sec": 1.2472762810000404,
+      "error_message": null
+    }
+  ],
+  "timing": {
+    "ed_elapsed_sec": 14.812876349999897,
+    "total_elapsed_sec": 60.400309404999916
+  }
+}

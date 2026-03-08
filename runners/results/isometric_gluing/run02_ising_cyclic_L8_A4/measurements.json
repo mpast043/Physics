@@ -1,0 +1,50 @@
+{
+  "L": 8,
+  "A_size": 4,
+  "B_size": 4,
+  "S_cut": 0.08879193953541306,
+  "S_A": 0.08879193953538772,
+  "S_B": 0.08879193953538772,
+  "rho_A_diagnostics": {
+    "hermitian": true,
+    "trace_one": true,
+    "positive_semidefinite": true,
+    "min_eigenvalue": -2.54818735533368e-17,
+    "max_eigenvalue": 0.9823514014946163,
+    "rank_filtered": 6,
+    "entropy": 0.08879193953538772,
+    "spectrum_filtered": [
+      1.800491575219133e-11,
+      1.0025007465972648e-09,
+      9.80189220526716e-08,
+      5.45762042052482e-06,
+      0.017643041845509126,
+      0.9823514014946426
+    ]
+  },
+  "rho_B_diagnostics": {
+    "hermitian": true,
+    "trace_one": true,
+    "positive_semidefinite": true,
+    "min_eigenvalue": -2.54818735533368e-17,
+    "max_eigenvalue": 0.9823514014946163,
+    "rank_filtered": 6,
+    "entropy": 0.08879193953538772,
+    "spectrum_filtered": [
+      1.800491575219133e-11,
+      1.0025007465972648e-09,
+      9.80189220526716e-08,
+      5.45762042052482e-06,
+      0.017643041845509126,
+      0.9823514014946426
+    ]
+  },
+  "rho_A_shape": [
+    16,
+    16
+  ],
+  "rho_B_shape": [
+    16,
+    16
+  ]
+}

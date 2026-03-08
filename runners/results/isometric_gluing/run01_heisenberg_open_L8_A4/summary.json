@@ -1,0 +1,25 @@
+{
+  "metadata": {
+    "run_id": "20260308T140157Z_02e10a4e",
+    "timestamp": "2026-03-08T14:01:57.784944+00:00",
+    "config": {
+      "L": 8,
+      "A_size": 4,
+      "model": "heisenberg_open"
+    },
+    "test": "ISOMETRIC_GLUING_DIAGNOSTICS",
+    "version": "5.0.0"
+  },
+  "ed_reference": {
+    "energy": -3.3749325986878898,
+    "cut_entropy": 0.4569757731133852,
+    "model_used": "heisenberg"
+  },
+  "derived_checks": {
+    "rho_A_valid": true,
+    "rho_B_valid": true,
+    "excision_consistency": true,
+    "subadditivity": true,
+    "araki_lieb": true
+  }
+}
