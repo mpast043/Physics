@@ -448,3 +448,10 @@ Plateau behavior is not observed in the frozen evidence set. The strongest suppo
 If you'd like, I can also help you add a small diagram-style section (just text) showing the workflow ladder you ended up discovering:
 
 Correctness → Convergence → Frontier stabilization → Plateau (not yet reached)
+
+A_size  chi     seed         energy      entropy     fidelity           dE           dS  run_id
+------------------------------------------------------------------------------------------------------------------------
+     2    8    82042   -6.898920624  0.399437873  0.992717429  0.012816522  0.021039325  RUN_20260309T015149Z_21648_b5b990a0
+     2   16   174042   -6.905611362  0.404770071  0.997135777  0.006125783  0.015707126  RUN_20260309T015420Z_23012_c3fb8501
+     6    8    82042   -6.903926692  0.546067662  0.995471316  0.007810454  0.032254048  RUN_20260309T020438Z_28981_ef1e117e
+     6   16   174042   -6.904906893  0.548111890  0.996334876  0.006830253  0.030209820  RUN_20260309T020604Z_29830_570fdd71

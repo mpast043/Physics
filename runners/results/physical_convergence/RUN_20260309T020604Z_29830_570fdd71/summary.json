@@ -1,0 +1,40 @@
+{
+  "run_id": "RUN_20260309T020604Z_29830_570fdd71",
+  "model": "heisenberg_open",
+  "L": 16,
+  "A_size": 6,
+  "chi_sweep": [
+    16
+  ],
+  "ed_energy": -6.911737145575103,
+  "ed_entropy": 0.5783217099219256,
+  "num_total_restarts": 1,
+  "num_failed_restarts": 0,
+  "num_successful_restarts": 1,
+  "best_per_chi": [
+    {
+      "chi": 16,
+      "restart_idx": 0,
+      "seed": 174042,
+      "converged": true,
+      "fidelity": 0.9963348764122457,
+      "entropy": 0.5481118899151742,
+      "final_energy": -6.904906893043375,
+      "elapsed_sec": 640.1112710080001,
+      "error_message": null
+    }
+  ],
+  "validation": {
+    "branch_policy": "baseline",
+    "energy_sanity": {
+      "passed": true,
+      "tolerance": 1e-06,
+      "invalid_points": []
+    },
+    "framework_eligible": true
+  },
+  "timing": {
+    "ed_elapsed_sec": 1.4738368049997916,
+    "total_elapsed_sec": 641.5857053080003
+  }
+}
