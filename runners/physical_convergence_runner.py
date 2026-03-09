@@ -3,16 +3,37 @@
 Physical Convergence Runner
 
 Purpose:
-- Compute ED reference data for Ising / Heisenberg models
-- Run MERA optimization across chi values and restarts
-- Collect raw per-restart data with reproducibility safeguards
-- Save data artifacts only
-- Add validation metadata so unphysical branches are clearly marked
+- Compute exact diagonalization (ED) reference data for supported Ising / Heisenberg models
+- Run MERA optimization across chi values and restart sets
+- Collect raw per-restart outputs with reproducibility safeguards
+- Save machine-readable run artifacts for later analysis
+- Record bounded local validation metadata such as energy sanity checks
+- Support explicit-seed replay for single-chi continuation and frontier-stabilization studies
 
-Usage:
+Notes:
+- This runner is data-first and does not make framework-level scientific verdicts.
+- Cross-run interpretation, frozen-evidence decisions, and plateau claims belong in analysis/docs.
+- The current trusted workflow is convergence-focused, with exact comparison where feasible.
+
+Examples
+--------
+Standard sweep:
   python3 physical_convergence_runner.py --L 8 --A_size 4 \
     --model heisenberg_open --j 1.0 --h 1.0 --chi_sweep 2,4,8 \
     --restarts_per_chi 2 --fit_steps 40 --seed 42 \
+    --output ./results/physical_convergence
+
+Trusted-branch convergence sweep:
+  python3 physical_convergence_runner.py --L 16 --A_size 4 \
+    --model heisenberg_open --chi_sweep 4,8,16 \
+    --restarts_per_chi 8 --fit_steps 120 \
+    --output ./results/physical_convergence
+
+Explicit-seed continuation (single chi only):
+  python3 physical_convergence_runner.py --L 16 --A_size 4 \
+    --model heisenberg_open --chi_sweep 16 \
+    --restarts_per_chi 4 --fit_steps 240 \
+    --explicit_seeds 174042,182042,168042,180042 \
     --output ./results/physical_convergence
 """
 
@@ -57,6 +78,7 @@ class Config:
     fit_steps: int
     seed: int
     output_dir: Path
+    explicit_seeds: List[int]
     j: float = 1.0
     h: float = 1.0
 
@@ -80,6 +102,17 @@ class Config:
             "heisenberg_cyclic",
         }:
             raise ValueError(f"Unsupported model: {self.model}")
+
+        if self.explicit_seeds:
+            if len(self.chi_sweep) != 1:
+                raise ValueError("--explicit_seeds requires exactly one chi value in --chi_sweep")
+            if any(seed < 0 for seed in self.explicit_seeds):
+                raise ValueError("All explicit seeds must be non-negative")
+            if self.restarts_per_chi != len(self.explicit_seeds):
+                raise ValueError(
+                    "--restarts_per_chi must match the number of explicit seeds "
+                    "when --explicit_seeds is provided"
+                )
 
 
 @dataclass
@@ -110,6 +143,15 @@ def parse_chi_sweep(text: str) -> List[int]:
         if raw:
             values.append(int(raw))
     return sorted(set(values))
+
+
+def parse_seed_list(text: str) -> List[int]:
+    values: List[int] = []
+    for raw in text.split(","):
+        raw = raw.strip()
+        if raw:
+            values.append(int(raw))
+    return values
 
 
 def make_run_id() -> str:
@@ -242,12 +284,17 @@ def run_mera_with_restarts(
     seed_base: int,
     j: float = 1.0,
     h: float = 1.0,
+    explicit_seeds: Optional[Sequence[int]] = None,
 ) -> List[OptimizationResult]:
     results: List[OptimizationResult] = []
 
-    for restart in range(restarts):
-        seed = seed_base + restart * 1000 + chi * 10000
-        print(f"    [MERA] chi={chi}, restart={restart + 1}/{restarts}, seed={seed}")
+    if explicit_seeds is not None:
+        seed_sequence = [int(seed) for seed in explicit_seeds]
+    else:
+        seed_sequence = [seed_base + restart * 1000 + chi * 10000 for restart in range(restarts)]
+
+    for restart, seed in enumerate(seed_sequence):
+        print(f"    [MERA] chi={chi}, restart={restart + 1}/{len(seed_sequence)}, seed={seed}")
 
         t0 = time.perf_counter()
         opt_result = optimize_mera_for_fidelity(
@@ -295,6 +342,8 @@ def run_mera_with_restarts(
 # Main runner
 # ---------------------------------------------------------------------------
 def build_config_from_args(args: argparse.Namespace) -> Config:
+    explicit_seeds = parse_seed_list(args.explicit_seeds) if args.explicit_seeds.strip() else []
+
     config = Config(
         L=args.L,
         A_size=args.A_size,
@@ -304,6 +353,7 @@ def build_config_from_args(args: argparse.Namespace) -> Config:
         fit_steps=args.fit_steps,
         seed=args.seed,
         output_dir=Path(args.output),
+        explicit_seeds=explicit_seeds,
         j=args.j,
         h=args.h,
     )
@@ -326,6 +376,7 @@ def main() -> int:
     ap.add_argument("--restarts_per_chi", "--restarts-per-chi", dest="restarts_per_chi", type=int, default=2)
     ap.add_argument("--fit_steps", "--fit-steps", dest="fit_steps", type=int, default=100)
     ap.add_argument("--seed", type=int, default=42)
+    ap.add_argument("--explicit_seeds", "--explicit-seeds", dest="explicit_seeds", type=str, default="")
     ap.add_argument("--output", type=Path, required=True)
 
     args = ap.parse_args()
@@ -342,7 +393,9 @@ def main() -> int:
     print(f"Chi sweep:   {config.chi_sweep}")
     print(f"Restarts:    {config.restarts_per_chi}")
     print(f"Fit steps:   {config.fit_steps}")
-    print(f"Seed:        {config.seed}")
+    print(f"Seed base:   {config.seed}")
+    if config.explicit_seeds:
+        print(f"Explicit:    {config.explicit_seeds}")
     print(f"Output dir:  {run_dir}")
     print("=" * 72)
 
@@ -378,6 +431,7 @@ def main() -> int:
             seed_base=config.seed,
             j=config.j,
             h=config.h,
+            explicit_seeds=config.explicit_seeds if config.explicit_seeds else None,
         )
 
         best = best_result_for_chi(chi_results)
@@ -421,6 +475,7 @@ def main() -> int:
             "restarts_per_chi": config.restarts_per_chi,
             "fit_steps": config.fit_steps,
             "seed": config.seed,
+            "explicit_seeds": config.explicit_seeds,
             "output_dir": str(config.output_dir),
             "resolved_output_dir": str(run_dir),
             "j": config.j,

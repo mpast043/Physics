@@ -380,3 +380,71 @@ Do not trust only terminal output.
 ## Next refactor target
 
 The next major improvement would be replacing the current black-box optimizer path in `shared/mera_backend.py` with a more explicit MERA optimization loop built around reusable tensor/environment update primitives.
+
+## March 08
+
+Framework status
+
+Current evidence supports controlled convergence under targeted continuation on the trusted heisenberg_open branch.
+
+At L=8, the workflow converges essentially to the exact finite-size target. At L=16, targeted continuation produces stable near-ED solutions for both chi=8 and chi=16. In the tested regime, the difference between stabilized chi=8 and stabilized chi=16 is small, suggesting that continuation quality is currently a stronger lever than increasing bond dimension from 8 to 16.
+
+Plateau behavior is not supported by the current frozen evidence set.
+
+Reference comparison table
+Case	Energy	Entropy	Fidelity	ΔE = E - E_ED	ΔS = |S - S_ED|	Interpretation
+L=8, trusted success case, chi=16	-3.3749325980	0.4569870681	0.9999999997	0.0000000006	0.0000112950	Exact to near-exact convergence
+L=16, stabilized continuation, chi=8	-6.8976045070	0.4850359906	0.9914124147	0.0141326385	0.0456576396	Stable near-ED solution
+L=16, stabilized continuation, chi=16	-6.8978780524	0.4848293615	0.9918055675	0.0138590932	0.0458642687	Stable near-ED solution, only marginally different from chi=8
+Note on the frozen chi=16 continuation pair 
+
+Two chi=16 continuation seeds were frozen, and they agree closely. 
+
+/workspaces/Physics/Keep/L16_Chi16_Best
+/workspaces/Physics/Keep/L16_Chi16_Seed_168042
+
+Seed 168042
+Energy: -6.8983214874
+Entropy: 0.4828124955
+Fidelity: 0.9917535259
+ΔE: 0.0134156582
+ΔS: 0.0478811347
+
+Seed 174042
+Energy: -6.8978780524
+Entropy: 0.4848293615
+Fidelity: 0.9918055675
+ΔE: 0.0138590932
+ΔS: 0.0458642687
+
+These two runs indicate that the L=16, chi=16 frontier has largely collapsed into the same near-ED solution class under targeted continuation.
+
+Bounded framework claim
+
+On the trusted heisenberg_open branch, the framework admits MERA realizations that converge cleanly to exact finite-size targets at L=8 and to stable near-ED solutions at L=16 under targeted continuation. In the current tested regime, continuation quality appears more important than increasing bond dimension from chi=8 to chi=16. Plateau behavior is not supported by the frozen evidence set.
+
+Interpretation
+
+The framework is no longer best described as a plateau-seeking program. The strongest supported result is controlled convergence on a trusted branch under exact comparison and targeted continuation.
+
+The L=8 case is the clean validation anchor. The L=16 case is now better described as a stable near-ED extension of that anchor, rather than as a noisy diagnostic failure. The present limit is not branch sanity, but that higher-level plateau structure has not yet emerged as a robust additional signal beyond convergence.
+
+/workspaces/Physics/Keep/L16_Chi8_Best_82042
+
+Roadmap update
+
+The next phase of work should focus on bounded convergence claims, frontier-style summaries, and only revisit plateau testing after a larger-size or alternate setup produces a stable monotone ordering across chi.
+
+Results
+
+The current framework workflow demonstrates controlled convergence of MERA realizations on the trusted heisenberg_open branch under exact comparison.
+
+At L=8, the optimization converges essentially to the exact diagonalization (ED) target, with energy, entropy, and fidelity matching the reference within numerical precision. This case serves as the primary validation anchor for the workflow.
+
+At L=16, targeted continuation produces stable near-ED solutions for both χ=8 and χ=16. The resulting states achieve fidelities above 0.99 and energies within approximately 1.4×10⁻² of the ED reference. The stabilized solutions at χ=8 and χ=16 are very similar, indicating that continuation quality currently has a larger impact on solution quality than increasing bond dimension from 8 to 16.
+
+Plateau behavior is not observed in the frozen evidence set. The strongest supported result of the current implementation is therefore controlled convergence on a trusted branch under exact reference comparison.
+
+If you'd like, I can also help you add a small diagram-style section (just text) showing the workflow ladder you ended up discovering:
+
+Correctness → Convergence → Frontier stabilization → Plateau (not yet reached)
