@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+
+# LaTeX build artifacts
+*.aux
+*.log
+*.out
+*.bbl
+*.blg
+*.synctex.gz
+*.fls
+*.fdb_latexmk
+*.toc
+*.lof
+*.lot
+
+# macOS / editor
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# Large binary outputs (keep only summary JSONs and selected PDFs)
+Archive/*/
